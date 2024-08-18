@@ -1,6 +1,7 @@
 package com.example.try2
 
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
@@ -9,7 +10,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
 class MovieSearchActivity : AppCompatActivity() {
-
+    private var currentMovieIndex = 0
+    private lateinit var textView: TextView
+    private lateinit var filteredMovies: List<Movie>
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -19,48 +22,75 @@ class MovieSearchActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-
+        // Получаем данные из SharedPreferences
         val sharedPreferences = getSharedPreferences("MySharedPref", MODE_PRIVATE)
         val selectedGenres = sharedPreferences.getStringSet("selectedGenres", emptySet())?.toList() ?: emptyList()
         val selectedYears = sharedPreferences.getStringSet("selectedYears", emptySet())?.toList() ?: emptyList()
-        // Имитируем список фильмов (в реальном приложении это мог быть запрос к базе данных)
+
+        // Имитируем список фильмов
         val movies = listOf(
-            Movie("Movie1", arrayOf("Биография", "Боевик"), "2021"),
-            Movie("Movie2", arrayOf("Боевик"), "2020"),
-            Movie("Movie3", arrayOf("Биография", "Вестерн"), "2022"),
-            Movie("Movie4", arrayOf("Военный"), "2021")
+            Movie("Movie1", arrayOf("Аниме", "Биография"), "2021"),
+            Movie("Movie2", arrayOf("Биография"), "2020"),
+            Movie("Movie3", arrayOf("Боевик", "Вестерн"), "2005"),
+            Movie("Movie4", arrayOf("Военный"), "1999"),
+            Movie("Movie5", arrayOf("Аниме"), "2015")
         )
 
         // Фильтруем фильмы по выбранным жанрам и годам
-        val filteredMovies = movies.filter { movie ->
-            matchesGenres(movie.Genre, selectedGenres) && matchesYears(movie.Year, selectedYears)
+        filteredMovies = movies.filter { movie ->
+            val genreMatch = matchesGenres(movie.Genre, selectedGenres)
+            val yearMatch = matchesYears(movie.Year, selectedYears)
+
+            // Логируем каждую проверку для отладки
+            Log.d("MovieSearchActivity", "Checking movie: ${movie.Name}")
+            Log.d("MovieSearchActivity", "Genre match: $genreMatch, Year match: $yearMatch")
+
+            genreMatch && yearMatch
         }
+        // Логируем результат фильтрации
+        Log.d("MovieSearchActivity", "Filtered Movies: ${filteredMovies.map { it.Name }}")
 
+        textView = findViewById(R.id.textViewMovie)
 
-        val textView = findViewById<TextView>(R.id.textViewMovie)
-
-
+        // Настройка кнопок
         val yesButton = findViewById<Button>(R.id.buttonYes)
-        yesButton.setOnClickListener{
+        val noButton = findViewById<Button>(R.id.buttonNo)
 
-            //для версии на 1, поздравление, фильм выбран
-        }
-        val NoButton = findViewById<Button>(R.id.buttonNo)
-        NoButton.setOnClickListener{
-            //для любой версии следующий фильм соответствующий параметрам
+        yesButton.setOnClickListener {
+            onYesClicked()
         }
 
-        if (filteredMovies.isNotEmpty()) {
-            textView.text = filteredMovies.joinToString("\n") { it.Name }
+        noButton.setOnClickListener {
+            onNoClicked()
+        }
+
+        // Показ первого фильма
+        showNextMovie()
+    }
+
+    private fun showNextMovie() {
+        if (currentMovieIndex < filteredMovies.size) {
+            val currentMovie = filteredMovies[currentMovieIndex]
+            textView.text = "Подходит ли вам фильм: ${currentMovie.Name}?"
         } else {
-            textView.text = "Фильмы не найдены по выбранным параметрам"
+            textView.text = "Фильмы, подходящие под критерии, закончились."
+
         }
     }
 
+    private fun onYesClicked() {
+        textView.text = "Поздравляю, вы выбрали фильм: ${filteredMovies[currentMovieIndex].Name}!"
+
+    }
+
+    private fun onNoClicked() {
+        currentMovieIndex++
+        showNextMovie()
+    }
 
     // Проверка соответствия жанрам
     private fun matchesGenres(movieGenres: Array<String>, selectedGenres: List<String>): Boolean {
-        return movieGenres.any { it in selectedGenres }
+        return selectedGenres.any { it in movieGenres }
     }
 
     // Проверка соответствия годам
@@ -68,22 +98,18 @@ class MovieSearchActivity : AppCompatActivity() {
         for (year in selectedYears) {
             when {
                 year.contains("–") -> {
-                    // Обработка интервала, например, "2000-2010"
                     val (startYear, endYear) = year.split("–").map { it.toInt() }
                     if (movieYear.toInt() in startYear..endYear) return true
                 }
                 year.startsWith("до") -> {
-                    // Обработка интервала, например, "до 2000"
                     val endYear = year.substringAfter("до ").toInt()
                     if (movieYear.toInt() < endYear) return true
                 }
                 else -> {
-                    // Обработка конкретного года, например, "2021"
                     if (movieYear == year) return true
                 }
             }
         }
         return false
     }
-
 }
