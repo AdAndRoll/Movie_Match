@@ -1,0 +1,38 @@
+<resources>
+    <string name="app_name">try2</string>
+    <string name="TextJoinButton">Присоединиться</string>
+    <string name="StartText">Выберите свой вариант!</string>
+    <string name="TextCreateRoomButton">Создать комнату</string>
+    <string name="TextCreateActivity">Выберите критерии подбора</string>
+    <string name="ContinueButtonText">Продолжить</string>
+    <string name="Pointer"><![CDATA[<-]]></string>
+    <string-array name="Genre">
+        <item>Не выбрано</item>
+        <item>Аниме</item>
+        <item>Биография</item>
+        <item>Боевик</item>
+        <item>Вестерн</item>
+        <item>Военный</item>
+        <item>Детектив</item>
+        <item>Документальный</item>
+        <item>Драма</item>
+        <item>История</item>
+        <item>Комедия</item>
+        <item>Мультфильм</item>
+        <item>Мюзикл</item>
+        <item>Приключения</item>
+        <item>Триллер</item>
+        <item>Ужасы</item>
+        <item>Фантастика</item>
+    </string-array>
+    <string-array name="Years">
+        <item>Не выбрано</item>
+        <item>1990–2000</item>
+        <item>2001–2010</item>
+        <item>2011–2020 </item>
+        <item>2021 </item>
+        <item>2022</item>
+        <item>2023</item>
+        <item>2024</item>
+    </string-array>
+</resources>
