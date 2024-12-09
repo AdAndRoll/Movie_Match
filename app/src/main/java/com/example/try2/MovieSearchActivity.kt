@@ -1,115 +1,112 @@
 package com.example.try2
 
 import android.os.Bundle
-import android.util.Log
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.Spinner
 import android.widget.TextView
-import androidx.activity.enableEdgeToEdge
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+import com.google.android.material.slider.RangeSlider
+import kotlinx.coroutines.*
+import java.io.UnsupportedEncodingException
+import java.net.URLEncoder
 
 class MovieSearchActivity : AppCompatActivity() {
-    private var currentMovieIndex = 0
-    private lateinit var textView: TextView
-    private lateinit var filteredMovies: List<Movie>
+
+    private lateinit var yearRangeSlider: RangeSlider
+    private lateinit var yearRangeText: TextView
+    private lateinit var genreSpinner: Spinner
+    private lateinit var searchButton: Button
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContentView(R.layout.activity_movie_search)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
-        // Получаем данные из SharedPreferences
-        val sharedPreferences = getSharedPreferences("MySharedPref", MODE_PRIVATE)
-        val selectedGenres = sharedPreferences.getStringSet("selectedGenres", emptySet())?.toList() ?: emptyList()
-        val selectedYears = sharedPreferences.getStringSet("selectedYears", emptySet())?.toList() ?: emptyList()
 
-        // Имитируем список фильмов
-        val movies = listOf(
-            Movie("Movie1", arrayOf("Аниме", "Биография"), "2021"),
-            Movie("Movie2", arrayOf("Биография"), "2020"),
-            Movie("Movie3", arrayOf("Боевик", "Вестерн"), "2005"),
-            Movie("Movie4", arrayOf("Военный"), "1999"),
-            Movie("Movie5", arrayOf("Аниме"), "2015")
+        // Инициализация компонентов
+        yearRangeSlider = findViewById(R.id.yearRangeSlider)
+        yearRangeText = findViewById(R.id.yearRangeText)
+        genreSpinner = findViewById(R.id.genreSpinner)
+        searchButton = findViewById(R.id.searchButton)
+        yearRangeSlider.setValues(1990f, 2024f)
+
+        // Установка обработчика ползунка
+        yearRangeSlider.addOnChangeListener { _, _, _ ->
+            val range = yearRangeSlider.values
+            val startYear = range[0].toInt()
+            val endYear = range[1].toInt()
+            yearRangeText.text = "Выбранные года: $startYear - $endYear"
+        }
+
+        // Настройка выпадающего списка для жанров
+        val genres = listOf("драма", "ужасы", "комедия", "боевик", "фантастика")
+        val adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            genres
         )
+        genreSpinner.adapter = adapter
 
-        // Фильтруем фильмы по выбранным жанрам и годам
-        filteredMovies = movies.filter { movie ->
-            val genreMatch = matchesGenres(movie.Genre, selectedGenres)
-            val yearMatch = matchesYears(movie.Year, selectedYears)
-
-            // Логируем каждую проверку для отладки
-            Log.d("MovieSearchActivity", "Checking movie: ${movie.Name}")
-            Log.d("MovieSearchActivity", "Genre match: $genreMatch, Year match: $yearMatch")
-
-            genreMatch && yearMatch
-        }
-        // Логируем результат фильтрации
-        Log.d("MovieSearchActivity", "Filtered Movies: ${filteredMovies.map { it.Name }}")
-
-        textView = findViewById(R.id.textViewMovie)
-
-        // Настройка кнопок
-        val yesButton = findViewById<Button>(R.id.buttonYes)
-        val noButton = findViewById<Button>(R.id.buttonNo)
-
-        yesButton.setOnClickListener {
-            onYesClicked()
-        }
-
-        noButton.setOnClickListener {
-            onNoClicked()
-        }
-
-        // Показ первого фильма
-        showNextMovie()
-    }
-
-    private fun showNextMovie() {
-        if (currentMovieIndex < filteredMovies.size) {
-            val currentMovie = filteredMovies[currentMovieIndex]
-            textView.text = "Подходит ли вам фильм: ${currentMovie.Name}?"
-        } else {
-            textView.text = "Фильмы, подходящие под критерии, закончились."
-
+        // Обработчик кнопки поиска
+        searchButton.setOnClickListener {
+            val selectedYears = yearRangeSlider.values
+            // Преобразуем значения в строковый список (List<String>)
+            val yearRange = listOf("${selectedYears[0].toInt()}", "${selectedYears[1].toInt()}")
+            val selectedGenre = genreSpinner.selectedItem as String
+            println("Searching for movies with genres: $selectedGenre, year range: $yearRange")
+            // Вызов API с выбранными параметрами
+            searchMovies(selectedGenre, yearRange)
         }
     }
 
-    private fun onYesClicked() {
-        textView.text = "Поздравляю, вы выбрали фильм: ${filteredMovies[currentMovieIndex].Name}!"
+    // Изменения в параметре yearRange: теперь это список строк
+    fun searchMovies(genre: String, yearRange: List<String>) {
+        val apiClient = MovieApiClient("T31MD52-6ZJ4RVQ-KBK3C0T-0AVR9WS")
+        val genres = listOf(genre)
 
-    }
+        // Кодируем жанр для передачи в URL
+        val encodedGenre = try {
+            URLEncoder.encode(genres[0], "UTF-8")
+        } catch (e: UnsupportedEncodingException) {
+            e.printStackTrace()
+            genres[0] // Если кодировка не удалась, используем исходное значение
+        }
 
-    private fun onNoClicked() {
-        currentMovieIndex++
-        showNextMovie()
-    }
+        // Запуск корутины для выполнения запроса в фоновом потоке
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Вызов API в фоновом потоке
+                val movieSearchResponse = apiClient.searchMovies(genres, yearRange)
+                println("Response: $movieSearchResponse")
 
-    // Проверка соответствия жанрам
-    private fun matchesGenres(movieGenres: Array<String>, selectedGenres: List<String>): Boolean {
-        return selectedGenres.any { it in movieGenres }
-    }
+                // Формируем запрос URL с передачей параметров
+                val url = "https://api.kinopoisk.dev/v1.4/movie?page=1&limit=5&selectFields=id&selectFields=name&selectFields=year&selectFields=movieLength&selectFields=rating&selectFields=description&selectFields=genres&selectFields=poster&notNullFields=name&notNullFields=description&notNullFields=poster.url&sortField=rating.kp&sortType=-1&type=movie&year=${yearRange[0]}&year=${yearRange[1]}&genres.name=$encodedGenre"
+                println("Request URL: $url")
 
-    // Проверка соответствия годам
-    private fun matchesYears(movieYear: String, selectedYears: List<String>): Boolean {
-        for (year in selectedYears) {
-            when {
-                year.contains("–") -> {
-                    val (startYear, endYear) = year.split("–").map { it.toInt() }
-                    if (movieYear.toInt() in startYear..endYear) return true
+                // После выполнения запроса, возвращаемся на главный поток для обновления UI
+                withContext(Dispatchers.Main) {
+                    if (movieSearchResponse != null) {
+                        val movies = movieSearchResponse.movies
+                        if (!movies.isNullOrEmpty()) {
+                            // Выводим название первого фильма в логи
+                            println("First movie: ${movies[0].name}")
+                            Toast.makeText(this@MovieSearchActivity, "First movie: ${movies[0].name}", Toast.LENGTH_SHORT).show()
+                        } else {
+                            println("No movies found")
+                            Toast.makeText(this@MovieSearchActivity, "No movies found", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        println("Failed to fetch movie data")
+                        Toast.makeText(this@MovieSearchActivity, "Failed to fetch movie data", Toast.LENGTH_SHORT).show()
+                    }
                 }
-                year.startsWith("до") -> {
-                    val endYear = year.substringAfter("до ").toInt()
-                    if (movieYear.toInt() < endYear) return true
-                }
-                else -> {
-                    if (movieYear == year) return true
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    // Обработка ошибок (например, отсутствие интернета)
+                    e.printStackTrace()
+                    Toast.makeText(this@MovieSearchActivity, "Error occurred: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
-        return false
     }
 }

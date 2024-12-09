@@ -1,43 +1,43 @@
-<?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MovieSearchActivity">
+    android:orientation="vertical"
+    android:padding="16dp">
 
+    <!-- Ползунок для выбора диапазона годов -->
+    <com.google.android.material.slider.RangeSlider
+        android:id="@+id/yearRangeSlider"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:contentDescription="@string/StartText"
+        android:stepSize="1"
+        android:valueFrom="1990"
+        android:valueTo="2024"/>
+
+
+    <!-- Текстовое поле для отображения выбранного диапазона годов -->
     <TextView
-        android:id="@+id/textViewMovie"
+        android:id="@+id/yearRangeText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="TextView"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:layout_marginTop="8dp"
+        android:text="Выбранные года: 2000 - 2024" />
 
-    <Button
-        android:id="@+id/buttonNo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Нет"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.246"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.78" />
+    <!-- Выпадающий список для выбора жанров -->
+    <Spinner
+        android:id="@+id/genreSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginTop="16dp"
+        android:spinnerMode="dropdown" />
 
+    <!-- Кнопка для выполнения запроса -->
     <Button
-        android:id="@+id/buttonYes"
-        android:layout_width="wrap_content"
+        android:id="@+id/searchButton"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Да"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.506"
-        app:layout_constraintStart_toEndOf="@+id/buttonNo"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.78" />
-</androidx.constraintlayout.widget.ConstraintLayout>
+        android:layout_marginTop="16dp"
+        android:text="Искать фильмы" />
+</LinearLayout>

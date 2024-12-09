@@ -6,6 +6,7 @@
     <string name="TextCreateActivity">Выберите критерии подбора</string>
     <string name="ContinueButtonText">Продолжить</string>
     <string name="Pointer"><![CDATA[<-]]></string>
+    <string name="year_range_slider_description">Year range selection slider</string>
     <string-array name="Genre">
         <item>Не выбрано</item>
         <item>Аниме</item>
