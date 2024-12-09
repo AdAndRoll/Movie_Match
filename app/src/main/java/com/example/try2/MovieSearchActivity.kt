@@ -51,7 +51,7 @@ class MovieSearchActivity : AppCompatActivity() {
         searchButton.setOnClickListener {
             val selectedYears = yearRangeSlider.values
             // Преобразуем значения в строковый список (List<String>)
-            val yearRange = listOf("${selectedYears[0].toInt()}", "${selectedYears[1].toInt()}")
+            val yearRange = listOf("${selectedYears[0].toInt()}-${selectedYears[1].toInt()}")
             val selectedGenre = genreSpinner.selectedItem as String
             println("Searching for movies with genres: $selectedGenre, year range: $yearRange")
             // Вызов API с выбранными параметрами
@@ -59,7 +59,6 @@ class MovieSearchActivity : AppCompatActivity() {
         }
     }
 
-    // Изменения в параметре yearRange: теперь это список строк
     fun searchMovies(genre: String, yearRange: List<String>) {
         val apiClient = MovieApiClient("T31MD52-6ZJ4RVQ-KBK3C0T-0AVR9WS")
         val genres = listOf(genre)
@@ -72,6 +71,13 @@ class MovieSearchActivity : AppCompatActivity() {
             genres[0] // Если кодировка не удалась, используем исходное значение
         }
 
+        // Формируем строку параметра year для URL
+        val yearRangeString = when {
+            yearRange.size == 1 -> yearRange[0] // Один год, например "2015"
+            yearRange.size == 2 -> "${yearRange[0]}-${yearRange[1]}" // Диапазон лет, например "2010-2020"
+            else -> yearRange.joinToString(",") // Несколько лет, например "2010,2012,2015"
+        }
+
         // Запуск корутины для выполнения запроса в фоновом потоке
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -80,7 +86,7 @@ class MovieSearchActivity : AppCompatActivity() {
                 println("Response: $movieSearchResponse")
 
                 // Формируем запрос URL с передачей параметров
-                val url = "https://api.kinopoisk.dev/v1.4/movie?page=1&limit=5&selectFields=id&selectFields=name&selectFields=year&selectFields=movieLength&selectFields=rating&selectFields=description&selectFields=genres&selectFields=poster&notNullFields=name&notNullFields=description&notNullFields=poster.url&sortField=rating.kp&sortType=-1&type=movie&year=${yearRange[0]}&year=${yearRange[1]}&genres.name=$encodedGenre"
+                val url = "https://api.kinopoisk.dev/v1.4/movie?page=1&limit=5&selectFields=id&selectFields=name&selectFields=year&selectFields=movieLength&selectFields=rating&selectFields=description&selectFields=genres&selectFields=poster&notNullFields=name&notNullFields=description&notNullFields=poster.url&sortField=rating.kp&sortType=-1&type=movie&year=$yearRangeString&genres.name=$encodedGenre"
                 println("Request URL: $url")
 
                 // После выполнения запроса, возвращаемся на главный поток для обновления UI
@@ -109,4 +115,5 @@ class MovieSearchActivity : AppCompatActivity() {
             }
         }
     }
+
 }
