@@ -23,7 +23,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Выбранные года: 2000 - 2024" />
+        android:text="Выбранные года: 1990 - 2024" />
 
     <!-- Выпадающий список для выбора жанров -->
     <Spinner
