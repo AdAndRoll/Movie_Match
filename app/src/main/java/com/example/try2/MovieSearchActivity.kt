@@ -86,7 +86,7 @@ class MovieSearchActivity : AppCompatActivity() {
                 // После выполнения запроса, возвращаемся на главный поток для обновления UI
                 withContext(Dispatchers.Main) {
                     if (movieSearchResponse != null) {
-                        val movies = movieSearchResponse.movies
+                        val movies = movieSearchResponse.docs
                         if (!movies.isNullOrEmpty()) {
                             // Выводим название первого фильма в логи
                             println("First movie: ${movies[0].name}")

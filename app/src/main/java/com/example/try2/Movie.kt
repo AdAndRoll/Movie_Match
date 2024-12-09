@@ -1,11 +1,15 @@
 package com.example.try2
 
 data class MovieSearchResponse(
-    val movies: List<Movie>
+    val docs: List<Movie>,  // Используем docs, так как это ключ в ответе от API
+    val total: Int,
+    val limit: Int,
+    val page: Int,
+    val pages: Int
 )
 
 data class Movie(
-    val id: Int,
+    val id: Long,  // В API id фильмов передается как Long, изменим тип
     val name: String,
     val year: Int,
     val movieLength: Int,
@@ -16,7 +20,7 @@ data class Movie(
 )
 
 data class Rating(
-    val kp: Float
+    val kp: Float  // Значение рейтинга возвращается как число с плавающей точкой
 )
 
 data class Genre(
@@ -26,4 +30,3 @@ data class Genre(
 data class Poster(
     val url: String
 )
-
