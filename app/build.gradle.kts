@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+    id("kotlin-parcelize")
+    id("com.google.devtools.ksp") // Используем alias для плагина KSP
 }
 
 android {
@@ -26,21 +28,26 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+
     kotlinOptions {
         jvmTarget = "1.8"
     }
 }
 
-    dependencies {
+
+
+dependencies {
+    implementation(libs.glide)
     implementation(libs.serialization.converter)
     implementation(libs.converter.gson)
     implementation(libs.retrofit)
     implementation(libs.picasso)
-        implementation(libs.logging.interceptor)
+    implementation(libs.logging.interceptor)
     implementation(libs.okhttp)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -51,4 +58,7 @@ android {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    // Используем KSP для Glide компилятора
+    ksp(libs.ksp.glide.compiler) // Заменяем kapt на ksp
 }
