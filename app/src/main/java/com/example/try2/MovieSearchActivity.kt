@@ -1,5 +1,6 @@
 package com.example.try2
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -97,6 +98,11 @@ class MovieSearchActivity : AppCompatActivity() {
                             // Выводим название первого фильма в логи
                             println("First movie: ${movies[0].name}")
                             Toast.makeText(this@MovieSearchActivity, "First movie: ${movies[0].name}", Toast.LENGTH_SHORT).show()
+                            // Передаем данные в ChooseActivity
+                            val intent = Intent(this@MovieSearchActivity, ChooseActivity::class.java)
+                            // Передаем список фильмов через сериализацию или Parcelable
+                            intent.putParcelableArrayListExtra("MOVIES_LIST", ArrayList(movies))
+                            startActivity(intent)
                         } else {
                             println("No movies found")
                             Toast.makeText(this@MovieSearchActivity, "No movies found", Toast.LENGTH_SHORT).show()
@@ -115,5 +121,4 @@ class MovieSearchActivity : AppCompatActivity() {
             }
         }
     }
-
 }
