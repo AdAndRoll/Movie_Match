@@ -22,7 +22,7 @@ class MainActivity : AppCompatActivity() {
         val joinButton: Button=findViewById(R.id.JoinButton)
 
         createButton.setOnClickListener{
-            val intent = Intent(this,CreateActivity::class.java)
+            val intent = Intent(this,MovieSearchActivity::class.java)
             startActivity(intent)
         }
 

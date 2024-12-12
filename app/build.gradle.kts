@@ -35,10 +35,12 @@ android {
     }
 }
 
-dependencies {
+    dependencies {
+    implementation(libs.serialization.converter)
     implementation(libs.converter.gson)
     implementation(libs.retrofit)
     implementation(libs.picasso)
+        implementation(libs.logging.interceptor)
     implementation(libs.okhttp)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

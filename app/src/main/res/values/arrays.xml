@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <array name="initial_slider_values">
+        <item>1990</item>
+        <item>2024</item>
+    </array>
+    <array name="default_year_range">
+        <item>1990</item>
+        <item>2024</item>
+    </array>
+</resources>
