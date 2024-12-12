@@ -20,7 +20,7 @@ interface MovieApiService {
     suspend fun searchMovies(
         @Header("X-API-KEY") apiKey: String,
         @Query("page") page: Int = 1,
-        @Query("limit") limit: Int = 5,
+        @Query("limit") limit: Int = 15,
         @Query("year") years: List<String>,  // Строковый список для года или диапазона
         @Query("genres.name") genres: List<String>,  // Список жанров
         @Query("selectFields") selectFields: List<String> = listOf("id", "name", "year", "movieLength", "rating", "description", "genres", "poster"),
