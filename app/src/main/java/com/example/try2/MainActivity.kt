@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.google.firebase.database.FirebaseDatabase
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,11 +21,14 @@ class MainActivity : AppCompatActivity() {
         }
         val createButton: Button=findViewById(R.id.CreateRoomButton)
         val joinButton: Button=findViewById(R.id.JoinButton)
-
+        val database = FirebaseDatabase.getInstance()
+        val ref = database.getReference("test")
+        ref.setValue("Firebase подключен!") // Это создаст запись в БД
         createButton.setOnClickListener{
             val intent = Intent(this,MovieSearchActivity::class.java)
             startActivity(intent)
         }
+
 
         joinButton.setOnClickListener {
             //описание присоединения
