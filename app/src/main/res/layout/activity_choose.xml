@@ -1,89 +1,94 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:layout_height="match_parent">
 
-    <!-- Movie Name -->
-    <TextView
-        android:id="@+id/movieNameTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Movie Name"
-        android:textSize="20sp"
-        android:textStyle="bold" />
-
-    <!-- Movie Description -->
-    <TextView
-        android:id="@+id/movieDescriptionTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Description"
-        android:layout_marginTop="8dp" />
-
-    <!-- Movie Genre -->
-    <TextView
-        android:id="@+id/movieGenreTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Genre"
-        android:layout_marginTop="8dp" />
-
-    <!-- Movie Year -->
-    <TextView
-        android:id="@+id/movieYearTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Year"
-        android:layout_marginTop="8dp" />
-
-    <!-- Movie Length -->
-    <TextView
-        android:id="@+id/movieLengthTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Length"
-        android:layout_marginTop="8dp" />
-
-    <!-- Movie Rating -->
-    <TextView
-        android:id="@+id/movieRatingTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Rating"
-        android:layout_marginTop="8dp" />
-
-    <!-- Movie Poster -->
-    <ImageView
-        android:id="@+id/moviePosterImageView"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="300dp"
-        android:layout_marginTop="16dp"
-        android:scaleType="centerCrop" />
-
-    <!-- Yes and No buttons -->
-    <Button
-        android:id="@+id/yesButton"
-        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Yes"
-        android:layout_marginTop="16dp" />
+        android:orientation="vertical"
+        android:padding="16dp">
 
-    <Button
-        android:id="@+id/noButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="No"
-        android:layout_marginTop="8dp" />
+        <!-- Movie Name -->
+        <TextView
+            android:id="@+id/movieNameTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Movie Name"
+            android:textSize="20sp"
+            android:textStyle="bold" />
 
-    <!-- Message TextView -->
-    <TextView
-        android:id="@+id/messageTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textSize="16sp"
-        android:textColor="@android:color/holo_green_dark"
-        android:layout_marginTop="16dp" />
-</LinearLayout>
+        <!-- Movie Description -->
+        <TextView
+            android:id="@+id/movieDescriptionTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Description"
+            android:layout_marginTop="8dp" />
+
+        <!-- Movie Genre -->
+        <TextView
+            android:id="@+id/movieGenreTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Genre"
+            android:layout_marginTop="8dp" />
+
+        <!-- Movie Year -->
+        <TextView
+            android:id="@+id/movieYearTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Year"
+            android:layout_marginTop="8dp" />
+
+        <!-- Movie Length -->
+        <TextView
+            android:id="@+id/movieLengthTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Length"
+            android:layout_marginTop="8dp" />
+
+        <!-- Movie Rating -->
+        <TextView
+            android:id="@+id/movieRatingTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Rating"
+            android:layout_marginTop="8dp" />
+
+        <!-- Movie Poster -->
+        <ImageView
+            android:id="@+id/moviePosterImageView"
+            android:layout_width="match_parent"
+            android:layout_height="300dp"
+            android:layout_marginTop="16dp"
+            android:scaleType="centerCrop" />
+
+        <!-- Yes and No buttons -->
+        <Button
+            android:id="@+id/yesButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yes"
+            android:layout_marginTop="16dp" />
+
+        <Button
+            android:id="@+id/noButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No"
+            android:layout_marginTop="8dp" />
+
+        <!-- Message TextView -->
+        <TextView
+            android:id="@+id/messageTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="16sp"
+            android:textColor="@android:color/holo_green_dark"
+            android:layout_marginTop="16dp" />
+    </LinearLayout>
+</ScrollView>
