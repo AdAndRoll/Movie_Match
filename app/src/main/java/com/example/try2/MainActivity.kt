@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
+
         joinButton.setOnClickListener {
             //описание присоединения
         }
