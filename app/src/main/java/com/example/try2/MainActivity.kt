@@ -26,6 +26,8 @@ import com.google.firebase.database.ValueEventListener
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var auth: FirebaseAuth
+
     private lateinit var database: FirebaseDatabase
     private lateinit var prefs: SharedPreferences
     private lateinit var roomsList: ListView
@@ -43,7 +45,23 @@ class MainActivity : AppCompatActivity() {
         setupUI()
         setupRoomsList()
         checkSavedRooms()
+        auth = FirebaseAuth.getInstance()
+        checkAuthentication()
     }
+
+
+    private fun checkAuthentication() {
+        if (auth.currentUser == null) {
+            auth.signInAnonymously()
+                .addOnCompleteListener(this) { task ->
+                    if (!task.isSuccessful) {
+                        showError("Ошибка аутентификации")
+                        finish()
+                    }
+                }
+        }
+    }
+
 
     private fun initializeComponents() {
         prefs = getSharedPreferences("RoomPrefs", MODE_PRIVATE)
@@ -201,7 +219,7 @@ class MainActivity : AppCompatActivity() {
     private fun createNewRoom(userName: String) {
         val roomCode = generateRoomCode()
         val roomRef = database.getReference("rooms/$roomCode")
-        val userKey = roomRef.child("users").push().key ?: return showError("Ошибка")
+        val userKey = auth.currentUser?.uid ?: return showError("Ошибка аутентификации")
 
         val roomData = hashMapOf(
             "owner" to userKey,
@@ -212,7 +230,8 @@ class MainActivity : AppCompatActivity() {
                     "name" to userName,
                     "ready" to false,
                     "online" to true,
-                    "last_active" to ServerValue.TIMESTAMP
+                    "last_active" to ServerValue.TIMESTAMP,
+                    "ownerId" to userKey
                 )
             )
         )
@@ -295,11 +314,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun createUserInRoom(roomCode: String, userName: String) {
-        val userRef = database.getReference("rooms/$roomCode/users")
-        val userKey = userRef.push().key ?: run {
-            showError("Ошибка подключения")
+        val userKey = auth.currentUser?.uid ?: run {
+            showError("Ошибка аутентификации")
             return
         }
+
+        val userRef = database.getReference("rooms/$roomCode/users/$userKey")
 
         val userData = hashMapOf(
             "name" to userName,
@@ -308,7 +328,7 @@ class MainActivity : AppCompatActivity() {
             "last_active" to ServerValue.TIMESTAMP
         )
 
-        userRef.child(userKey).setValue(userData)
+        userRef.setValue(userData)
             .addOnSuccessListener {
                 prefs.edit().putString("room_$roomCode", userKey).apply()
                 database.getReference("active_rooms/$roomCode").setValue(true)

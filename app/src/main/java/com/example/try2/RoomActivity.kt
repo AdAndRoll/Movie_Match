@@ -114,10 +114,8 @@ class RoomActivity : AppCompatActivity() {
 
     private fun checkOwnerStatus() {
         val currentUser = FirebaseAuth.getInstance().currentUser
-        val ownerId = currentUser?.uid ?: prefs.getString("room_$roomCode", null)
-
         database.getReference("rooms/$roomCode/owner").get().addOnSuccessListener {
-            isOwner = it.getValue(String::class.java) == ownerId
+            isOwner = it.getValue(String::class.java) == currentUser?.uid
             btnStart.visibility = if (isOwner) View.VISIBLE else View.GONE
         }
     }
