@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "rooms": {
+      ".read": true,
+      "$roomId": {
+        ".write": "
+          !data.exists() ||  // Разрешить создание
+          (newData.exists() && newData.child('owner').val() == auth.uid) ||  // Изменение владельцем
+          !newData.exists()  // Удаление
+        ",
+        "users": {
+          "$userId": {
+            ".write": "
+              auth != null && (
+                auth.uid == $userId ||  // Сам пользователь
+                newData.parent().parent().child('owner').val() == auth.uid  // Владелец комнаты
+              )
+            "
+          }
+        }
+      }
+    },
+    "active_rooms": {
+      "$roomId": {
+        ".write": "
+          root.child('rooms').child($roomId).exists() &&  // Комната должна существовать
+          (newData.val() == true || newData.val() == null)  // Только установка true или удаление
+        "
+      }
+    }
+  }
+}
