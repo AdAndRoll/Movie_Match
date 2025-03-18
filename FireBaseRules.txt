@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "rooms": {
+      ".read": true,
+      "$roomId": {
+        ".write": "
+          !data.exists() || 
+          (newData.child('owner').val() == auth.uid) ||
+          !newData.exists()
+        ",
+        "users": {
+          "$userId": {
+            ".write": "
+              auth != null && (
+                auth.uid == $userId ||
+                root.child('rooms').child($roomId).child('owner').val() == auth.uid
+              )
+            "
+          }
+        }
+      }
+    },
+    "active_rooms": {
+      "$roomId": {
+        ".write": "
+          root.child('rooms').child($roomId).exists() &&
+          (newData.val() == true || newData.val() == null)
+        "
+      }
+    }
+  }
+}
