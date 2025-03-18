@@ -76,4 +76,4 @@ class MovieApiClient(private val apiKey: String) {
     }
 }
 
-// Пример использования метода searchMovies в корутине
+

@@ -39,11 +39,11 @@ android {
 
     dependencies {
         // Используем BoM, чтобы автоматически подтягивались совместимые версии
-        implementation(libs.firebase.bom)
-
+        implementation(platform(libs.firebase.bom))
+        implementation (libs.firebase.auth.ktx)
         // Добавляем Firebase Realtime Database
         implementation(libs.google.firebase.database.ktx)
-        implementation(libs.firebase.database.ktx)
+
         implementation(libs.serialization.converter)
         implementation(libs.converter.gson)
         implementation(libs.retrofit)

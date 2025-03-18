@@ -1,44 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
-
-    <Button
-        android:id="@+id/JoinButton"
-        android:layout_width="205dp"
-        android:layout_height="60dp"
-        android:layout_marginTop="204dp"
-        android:text="@string/TextJoinButton"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/StartText" />
+    android:orientation="vertical"
+    android:padding="16dp">
 
     <TextView
-        android:id="@+id/StartText"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/StartText"
-        android:textSize="34sp"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.245" />
+        android:text="Активные комнаты"
+        android:textSize="18sp"
+        android:paddingBottom="8dp"/>
+
+    <ListView
+        android:id="@+id/roomsList"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:dividerHeight="1dp"
+        android:padding="8dp"/>
 
     <Button
         android:id="@+id/CreateRoomButton"
-        android:layout_width="205dp"
-        android:layout_height="60dp"
-        android:layout_marginTop="112dp"
-        android:text="@string/TextCreateRoomButton"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/StartText" />
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Создать комнату"
+        android:layout_marginTop="16dp"/>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <Button
+        android:id="@+id/JoinButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Присоединиться"
+        android:layout_marginTop="8dp"/>
+
+</LinearLayout>

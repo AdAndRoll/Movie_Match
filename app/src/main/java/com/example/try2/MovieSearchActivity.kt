@@ -97,7 +97,7 @@ class MovieSearchActivity : AppCompatActivity() {
                         if (!movies.isNullOrEmpty()) {
                             // Выводим название первого фильма в логи
                             println("First movie: ${movies[0].name}")
-                            Toast.makeText(this@MovieSearchActivity, "First movie: ${movies[0].name}", Toast.LENGTH_SHORT).show()
+                            //Toast.makeText(this@MovieSearchActivity, "First movie: ${movies[0].name}", Toast.LENGTH_SHORT).show()
                             // Передаем данные в ChooseActivity
                             val intent = Intent(this@MovieSearchActivity, ChooseActivity::class.java)
                             // Передаем список фильмов через сериализацию или Parcelable
