@@ -16,14 +16,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.MutableData
-import com.google.firebase.database.Transaction
-import com.google.firebase.database.ValueEventListener
-import java.util.concurrent.TimeUnit
+import com.google.firebase.database.*
 
 class RoomActivity : AppCompatActivity() {
 
@@ -41,6 +34,11 @@ class RoomActivity : AppCompatActivity() {
     private var countDownTimer: CountDownTimer? = null
     private var isOwner = false
     private var roomOwnerId: String? = null
+    private var isExitingProperly = false
+
+    companion object {
+        private const val TAG = "RoomActivity"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,7 +50,6 @@ class RoomActivity : AppCompatActivity() {
 
         roomCode = intent.getStringExtra("ROOM_CODE")!!
         userKey = intent.getStringExtra("USER_KEY")!!
-        val userName = intent.getStringExtra("USER_NAME")!!
 
         initializeUI()
         setupFirebaseReferences()
@@ -77,6 +74,9 @@ class RoomActivity : AppCompatActivity() {
     private fun setupFirebaseReferences() {
         currentUserRef = database.getReference("rooms/$roomCode/users/$userKey")
         currentUserRef.child("online").setValue(true)
+            .addOnSuccessListener {
+                database.getReference("active_rooms/$roomCode").setValue(true)
+            }
     }
 
     private fun setupPresenceSystem() {
@@ -107,13 +107,12 @@ class RoomActivity : AppCompatActivity() {
     }
 
     private fun setupUsersListener() {
-        val usersRef = database.getReference("rooms/$roomCode/users")
         val ownerRef = database.getReference("rooms/$roomCode/owner")
-
         ownerRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 roomOwnerId = snapshot.getValue(String::class.java)
-                usersRef.addValueEventListener(createUsersListener())
+                database.getReference("rooms/$roomCode/users")
+                    .addValueEventListener(createUsersListener())
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -205,7 +204,7 @@ class RoomActivity : AppCompatActivity() {
 
         countDownTimer = object : CountDownTimer(remaining, 1000) {
             override fun onTick(millisUntilFinished: Long) {
-                timerText.text = "${TimeUnit.MILLISECONDS.toSeconds(millisUntilFinished)}"
+                timerText.text = "${millisUntilFinished / 1000}"
                 timerText.animate().alpha(1f).withEndAction { timerText.animate().alpha(0.5f) }
             }
 
@@ -234,33 +233,73 @@ class RoomActivity : AppCompatActivity() {
             }
     }
 
+    override fun onBackPressed() {
+        isExitingProperly = true
+        exitRoomProperly()
+        super.onBackPressed()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(updatePresenceTask)
         countDownTimer?.cancel()
 
-        currentUserRef.child("online").setValue(false)
-        prefs.edit().putString("room_$roomCode", userKey).apply()
+        if (!isExitingProperly) {
+            // Для неожиданного закрытия - устанавливаем onDisconnect
+            currentUserRef.child("online").onDisconnect().setValue(false)
 
-        database.getReference("rooms/$roomCode").runTransaction(object : Transaction.Handler {
+            // Дополнительная проверка через время
+            Handler(Looper.getMainLooper()).postDelayed({
+                checkAndCleanupRoom()
+            }, 5000)
+        }
+    }
+
+    private fun exitRoomProperly() {
+        // Отменяем все pending onDisconnect операции
+        currentUserRef.child("online").onDisconnect().cancel()
+
+        // Обновляем статус пользователя сразу
+        currentUserRef.child("online").setValue(false)
+            .addOnCompleteListener {
+                // Запускаем проверку комнаты через 2 секунды для учета всех onDisconnect операций
+                Handler(Looper.getMainLooper()).postDelayed({
+                    checkAndCleanupRoom()
+                }, 2000)
+                finish()
+            }
+    }
+
+    private fun checkAndCleanupRoom() {
+        val roomRef = database.getReference("rooms/$roomCode")
+
+        roomRef.runTransaction(object : Transaction.Handler {
             override fun doTransaction(mutableData: MutableData): Transaction.Result {
                 val users = mutableData.child("users")
-                val hasOnline = users.children.any { userSnapshot ->
-                    userSnapshot.child("online").getValue(Boolean::class.java) == true
+                var hasOnline = false
+
+                users.children.forEach { user ->
+                    val online = user.child("online").getValue(Boolean::class.java) ?: false
+                    if (online) {
+                        hasOnline = true
+                        return@forEach
+                    }
                 }
 
                 if (!hasOnline) {
+                    // Удаляем из active_rooms только если нет онлайн пользователей
                     database.getReference("active_rooms/$roomCode").removeValue()
                     mutableData.value = null
-                } else {
-                    database.getReference("active_rooms/$roomCode").setValue(true)
                 }
+
                 return Transaction.success(mutableData)
             }
 
             override fun onComplete(error: DatabaseError?, committed: Boolean, currentData: DataSnapshot?) {
-                if (committed && currentData?.exists() == false) {
-                    prefs.edit().remove("room_$roomCode").apply()
+                if (error != null) {
+                    Log.e(TAG, "Room cleanup failed", error.toException())
+                } else {
+                    Log.d(TAG, "Room cleanup completed: $committed")
                 }
             }
         })
