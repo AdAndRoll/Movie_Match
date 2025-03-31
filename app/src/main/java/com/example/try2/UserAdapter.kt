@@ -10,6 +10,12 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 
 class UserAdapter : ListAdapter<RoomActivity.User, UserAdapter.ViewHolder>(DiffCallback()) {
+    private var ownerId: String? = null
+
+    fun setOwnerId(ownerId: String?) {
+        this.ownerId = ownerId
+        notifyDataSetChanged()
+    }
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val userName: TextView = view.findViewById(R.id.userName)
@@ -29,7 +35,8 @@ class UserAdapter : ListAdapter<RoomActivity.User, UserAdapter.ViewHolder>(DiffC
         val statusColor = if (user.online) Color.GREEN else Color.GRAY
         holder.statusIndicator.setBackgroundColor(statusColor)
 
-        if (user.uid == user.ownerId) {
+        // Проверяем, является ли пользователь владельцем комнаты
+        if (user.uid == ownerId) {
             holder.userName.text = "${user.name} (Создатель)"
         }
     }

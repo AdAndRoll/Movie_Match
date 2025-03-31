@@ -6,10 +6,12 @@ import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -38,6 +40,7 @@ class RoomActivity : AppCompatActivity() {
     private lateinit var updatePresenceTask: Runnable
     private var countDownTimer: CountDownTimer? = null
     private var isOwner = false
+    private var roomOwnerId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,7 +80,6 @@ class RoomActivity : AppCompatActivity() {
     }
 
     private fun setupPresenceSystem() {
-        // Автоматическое обновление активности
         updatePresenceTask = object : Runnable {
             override fun run() {
                 currentUserRef.child("last_active").setValue(System.currentTimeMillis())
@@ -86,30 +88,7 @@ class RoomActivity : AppCompatActivity() {
         }
         handler.post(updatePresenceTask)
 
-        // Обработка отключения
         currentUserRef.child("online").onDisconnect().setValue(false)
-        currentUserRef.onDisconnect().removeValue().addOnSuccessListener {
-            database.getReference("rooms/$roomCode").runTransaction(object : Transaction.Handler {
-                override fun doTransaction(mutableData: MutableData): Transaction.Result {
-                    val users = mutableData.child("users")
-                    if (users.children.none { it.child("online").getValue(Boolean::class.java) == true }) {
-                        mutableData.value = null
-                    }
-                    return Transaction.success(mutableData)
-                }
-
-                override fun onComplete(
-                    error: DatabaseError?,
-                    committed: Boolean,
-                    currentData: DataSnapshot?
-                ) {
-                    if (committed) {
-                        database.getReference("active_rooms/$roomCode").removeValue()
-                        prefs.edit().remove("room_$roomCode").apply()
-                    }
-                }
-            })
-        }
     }
 
     private fun checkOwnerStatus() {
@@ -128,29 +107,47 @@ class RoomActivity : AppCompatActivity() {
     }
 
     private fun setupUsersListener() {
-        database.getReference("rooms/$roomCode/users").addValueEventListener(
-            object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val users = snapshot.children.mapNotNull {
-                        it.getValue(User::class.java)?.copy(
-                            uid = it.key,
-                            ownerId = it.child("ownerId").getValue(String::class.java)
-                        )
-                    }
-                    adapter.submitList(users)
-                    checkAutoStartCondition(users)
-                }
+        val usersRef = database.getReference("rooms/$roomCode/users")
+        val ownerRef = database.getReference("rooms/$roomCode/owner")
 
-                override fun onCancelled(error: DatabaseError) {
-                    showError("Ошибка загрузки пользователей")
-                }
-            })
+        ownerRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                roomOwnerId = snapshot.getValue(String::class.java)
+                usersRef.addValueEventListener(createUsersListener())
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                showError("Не удалось загрузить создателя комнаты")
+            }
+        })
+    }
+
+    private fun createUsersListener() = object : ValueEventListener {
+        override fun onDataChange(snapshot: DataSnapshot) {
+            val users = snapshot.children.mapNotNull {
+                it.getValue(User::class.java)?.copy(uid = it.key)
+            }
+            adapter.setOwnerId(roomOwnerId)
+            adapter.submitList(users)
+            checkAutoStartCondition(users)
+        }
+
+        override fun onCancelled(error: DatabaseError) {
+            showError("Ошибка загрузки пользователей")
+        }
     }
 
     private fun checkAutoStartCondition(users: List<User>) {
         if (isOwner && users.isNotEmpty() && users.all { it.ready }) {
-            database.getReference("rooms/$roomCode/timer_start")
-                .setValue(System.currentTimeMillis())
+            AlertDialog.Builder(this)
+                .setTitle("Все готовы!")
+                .setMessage("Запустить автоматический отсчет?")
+                .setPositiveButton("Да") { _, _ ->
+                    database.getReference("rooms/$roomCode/timer_start")
+                        .setValue(System.currentTimeMillis())
+                }
+                .setNegativeButton("Нет", null)
+                .show()
         }
     }
 
@@ -203,7 +200,7 @@ class RoomActivity : AppCompatActivity() {
 
     private fun startCountdown(startTime: Long) {
         countDownTimer?.cancel()
-        val totalTime = 5000L // 5 секунд
+        val totalTime = 5000L
         val remaining = (startTime + totalTime) - System.currentTimeMillis()
 
         countDownTimer = object : CountDownTimer(remaining, 1000) {
@@ -229,8 +226,12 @@ class RoomActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        currentUserRef.child("ready").setValue(false)
-        database.getReference("rooms/$roomCode/timer_start").setValue(0)
+        database.getReference("rooms/$roomCode/status").get()
+            .addOnSuccessListener { snapshot ->
+                if (snapshot.getValue(String::class.java) == "voting") {
+                    startMovieSearchForAll()
+                }
+            }
     }
 
     override fun onDestroy() {
@@ -244,19 +245,22 @@ class RoomActivity : AppCompatActivity() {
         database.getReference("rooms/$roomCode").runTransaction(object : Transaction.Handler {
             override fun doTransaction(mutableData: MutableData): Transaction.Result {
                 val users = mutableData.child("users")
-                if (users.children.none { it.child("online").getValue(Boolean::class.java) == true }) {
+                val hasOnline = users.children.any { userSnapshot ->
+                    userSnapshot.child("online").getValue(Boolean::class.java) == true
+                }
+
+                if (!hasOnline) {
+                    database.getReference("active_rooms/$roomCode").removeValue()
                     mutableData.value = null
+                } else {
+                    database.getReference("active_rooms/$roomCode").setValue(true)
                 }
                 return Transaction.success(mutableData)
             }
 
-            override fun onComplete(
-                error: DatabaseError?,
-                committed: Boolean,
-                currentData: DataSnapshot?
-            ) {
-                if (committed) {
-                    database.getReference("active_rooms/$roomCode").removeValue()
+            override fun onComplete(error: DatabaseError?, committed: Boolean, currentData: DataSnapshot?) {
+                if (committed && currentData?.exists() == false) {
+                    prefs.edit().remove("room_$roomCode").apply()
                 }
             }
         })
@@ -271,9 +275,6 @@ class RoomActivity : AppCompatActivity() {
         val name: String? = null,
         val ready: Boolean = false,
         val online: Boolean = true,
-        val last_active: Long = 0,
-        val ownerId: String? = null // Добавлено поле ownerId
-    ) {
-       // val ownerId: Any?
-    }
+        val last_active: Long = 0
+    )
 }
