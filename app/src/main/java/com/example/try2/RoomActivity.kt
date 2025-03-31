@@ -15,6 +15,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.work.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 
@@ -28,7 +29,6 @@ class RoomActivity : AppCompatActivity() {
     private lateinit var btnStart: Button
     private lateinit var timerText: TextView
     private lateinit var currentUserRef: DatabaseReference
-    private lateinit var prefs: SharedPreferences
     private lateinit var handler: Handler
     private lateinit var updatePresenceTask: Runnable
     private var countDownTimer: CountDownTimer? = null
@@ -38,6 +38,7 @@ class RoomActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "RoomActivity"
+        private const val DELAY_BEFORE_CHECK = 5000L // 5 секунд
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,7 +46,6 @@ class RoomActivity : AppCompatActivity() {
         setContentView(R.layout.activity_room)
 
         database = FirebaseDatabase.getInstance()
-        prefs = getSharedPreferences("RoomPrefs", MODE_PRIVATE)
         handler = Handler(Looper.getMainLooper())
 
         roomCode = intent.getStringExtra("ROOM_CODE")!!
@@ -56,6 +56,7 @@ class RoomActivity : AppCompatActivity() {
         setupPresenceSystem()
         checkOwnerStatus()
         setupListeners()
+        setupActiveRoomListener()
     }
 
     private fun initializeUI() {
@@ -245,24 +246,15 @@ class RoomActivity : AppCompatActivity() {
         countDownTimer?.cancel()
 
         if (!isExitingProperly) {
-            // Для неожиданного закрытия - устанавливаем onDisconnect
             currentUserRef.child("online").onDisconnect().setValue(false)
-
-            // Дополнительная проверка через время
-            Handler(Looper.getMainLooper()).postDelayed({
-                checkAndCleanupRoom()
-            }, 5000)
+            scheduleRoomCleanupWorker()
         }
     }
 
     private fun exitRoomProperly() {
-        // Отменяем все pending onDisconnect операции
         currentUserRef.child("online").onDisconnect().cancel()
-
-        // Обновляем статус пользователя сразу
         currentUserRef.child("online").setValue(false)
             .addOnCompleteListener {
-                // Запускаем проверку комнаты через 2 секунды для учета всех onDisconnect операций
                 Handler(Looper.getMainLooper()).postDelayed({
                     checkAndCleanupRoom()
                 }, 2000)
@@ -271,38 +263,43 @@ class RoomActivity : AppCompatActivity() {
     }
 
     private fun checkAndCleanupRoom() {
-        val roomRef = database.getReference("rooms/$roomCode")
+        RoomManager.checkAndCleanRoom(roomCode, database) { committed ->
+            Log.d(TAG, if (committed) "Комната удалена" else "Комната сохранена")
+        }
+    }
 
-        roomRef.runTransaction(object : Transaction.Handler {
-            override fun doTransaction(mutableData: MutableData): Transaction.Result {
-                val users = mutableData.child("users")
-                var hasOnline = false
-
-                users.children.forEach { user ->
-                    val online = user.child("online").getValue(Boolean::class.java) ?: false
-                    if (online) {
-                        hasOnline = true
-                        return@forEach
+    private fun setupActiveRoomListener() {
+        database.getReference("active_rooms/$roomCode").addValueEventListener(
+            object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (!snapshot.exists()) {
+                        finish()
                     }
                 }
 
-                if (!hasOnline) {
-                    // Удаляем из active_rooms только если нет онлайн пользователей
-                    database.getReference("active_rooms/$roomCode").removeValue()
-                    mutableData.value = null
+                override fun onCancelled(error: DatabaseError) {
+                    Log.e(TAG, "Ошибка слушателя active_rooms", error.toException())
                 }
+            })
+    }
 
-                return Transaction.success(mutableData)
-            }
+    private fun scheduleRoomCleanupWorker() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
 
-            override fun onComplete(error: DatabaseError?, committed: Boolean, currentData: DataSnapshot?) {
-                if (error != null) {
-                    Log.e(TAG, "Room cleanup failed", error.toException())
-                } else {
-                    Log.d(TAG, "Room cleanup completed: $committed")
-                }
-            }
-        })
+        val data = Data.Builder()
+            .putString("roomCode", roomCode)
+            .putString("userKey", userKey)
+            .build()
+
+        val cleanupRequest = OneTimeWorkRequestBuilder<RoomCleanupWorker>()
+            .setInputData(data)
+            .setConstraints(constraints)
+            .setInitialDelay(DELAY_BEFORE_CHECK, java.util.concurrent.TimeUnit.MILLISECONDS)
+            .build()
+
+        WorkManager.getInstance(this).enqueue(cleanupRequest)
     }
 
     private fun showError(message: String) {

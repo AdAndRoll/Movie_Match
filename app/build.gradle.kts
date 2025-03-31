@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.try2"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.try2"
@@ -43,6 +43,8 @@ android {
         implementation (libs.firebase.auth.ktx)
         // Добавляем Firebase Realtime Database
         implementation(libs.google.firebase.database.ktx)
+        //для корректной обработки необычного выхода из комнат
+        implementation (libs.androidx.work.runtime.ktx)
 
         implementation(libs.serialization.converter)
         implementation(libs.converter.gson)
