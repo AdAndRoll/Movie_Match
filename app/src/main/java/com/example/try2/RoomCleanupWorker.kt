@@ -13,33 +13,41 @@ import com.google.firebase.database.*
 object RoomManager {
     fun checkAndCleanRoom(roomCode: String, database: FirebaseDatabase, callback: (Boolean) -> Unit) {
         val roomRef = database.getReference("rooms/$roomCode")
-
         roomRef.runTransaction(object : Transaction.Handler {
             override fun doTransaction(mutableData: MutableData): Transaction.Result {
-                val users = mutableData.child("users")
-                var hasOnline = false
+                val usersData = mutableData.child("users")
+                var onlineCount = 0L
 
-                users.children.forEach { user ->
-                    if (user.child("online").getValue(Boolean::class.java) == true) {
-                        hasOnline = true
-                        return@forEach
-                    }
+                // Проходим по всем пользователям в комнате и считаем, сколько помечено как online.
+                for (userSnapshot in usersData.children) {
+                    val online = userSnapshot.child("online").getValue(Boolean::class.java) ?: false
+                    if (online) onlineCount++
                 }
 
-                if (!hasOnline) {
+                // Если ни один пользователь не онлайн, очищаем комнату и удаляем запись active_rooms.
+                if (onlineCount == 0L) {
+                    // Удаляем запись в active_rooms
                     database.getReference("active_rooms/$roomCode").removeValue()
+                    // Удаляем данные комнаты (например, при окончательном уходе всех)
                     mutableData.value = null
                 }
-
+                // Иначе оставляем данные без изменений.
                 return Transaction.success(mutableData)
             }
 
             override fun onComplete(error: DatabaseError?, committed: Boolean, currentData: DataSnapshot?) {
+                if (error != null) {
+                    Log.e("RoomManager", "Ошибка очистки комнаты: ${error.message}")
+                }
                 callback(committed)
             }
         })
     }
 }
+
+
+
+
 
 class RoomCleanupWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {

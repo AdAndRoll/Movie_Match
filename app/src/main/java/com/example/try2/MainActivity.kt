@@ -90,12 +90,51 @@ class MainActivity : AppCompatActivity() {
         val query = database.getReference("active_rooms").orderByValue().equalTo(true)
         activeRoomsListener = query.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val validRooms = snapshot.children.mapNotNull { it.key }
-                    .filter { validateRoomExistence(it) }
+                val roomKeys = snapshot.children.mapNotNull { it.key }
+                val validRooms = mutableListOf<String>()
+                var pendingChecks = roomKeys.size
 
-                activeRooms.clear()
-                activeRooms.addAll(validRooms)
-                roomsAdapter.notifyDataSetChanged()
+                if (pendingChecks == 0) {
+                    activeRooms.clear()
+                    roomsAdapter.notifyDataSetChanged()
+                    return
+                }
+
+                // Для каждого кода комнаты проверяем наличие в "rooms"
+                roomKeys.forEach { roomCode ->
+                    database.getReference("rooms/$roomCode").get()
+                        .addOnSuccessListener { roomSnapshot ->
+                            if (roomSnapshot.exists()) {
+                                // Только если данные о комнате сохранены в prefs, добавляем в список
+                                if (prefs.contains("room_$roomCode")) {
+                                    validRooms.add(roomCode)
+                                }
+                            } else {
+                                // Если комнаты нет в базе, удаляем её из active_rooms и prefs
+                                database.getReference("active_rooms/$roomCode").removeValue()
+                                    .addOnFailureListener {
+                                        Log.e("Firebase", "Ошибка при удалении комнаты $roomCode из active_rooms: ${it.message}")
+                                    }
+                                prefs.edit().remove("room_$roomCode").apply()
+                            }
+                            pendingChecks--
+                            if (pendingChecks == 0) {
+                                activeRooms.clear()
+                                activeRooms.addAll(validRooms)
+                                roomsAdapter.notifyDataSetChanged()
+                                Log.d("Firebase", "Обновлённый список комнат: $validRooms")
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("Firebase", "Ошибка проверки комнаты $roomCode: ${e.message}")
+                            pendingChecks--
+                            if (pendingChecks == 0) {
+                                activeRooms.clear()
+                                activeRooms.addAll(validRooms)
+                                roomsAdapter.notifyDataSetChanged()
+                            }
+                        }
+                }
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -109,6 +148,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
 
     private fun validateRoomExistence(roomCode: String): Boolean {
         database.getReference("rooms/$roomCode").get().addOnSuccessListener {

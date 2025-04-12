@@ -307,6 +307,7 @@ class RoomActivity : AppCompatActivity() {
     }
 
     data class User(
+        var ownerId: String? = null, // Добавлено поле для правильной десериализации
         val uid: String? = null,
         val name: String? = null,
         val ready: Boolean = false,
