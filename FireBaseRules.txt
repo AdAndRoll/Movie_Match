@@ -21,6 +21,7 @@
       }
     },
     "active_rooms": {
+      ".read": true,
       "$roomId": {
         ".write": "
           root.child('rooms').child($roomId).exists() &&
