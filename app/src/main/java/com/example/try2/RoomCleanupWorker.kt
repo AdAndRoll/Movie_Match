@@ -29,6 +29,7 @@ object RoomManager {
                     }
                 }
 
+
                 // 3. Удаляем только при полном отсутствии онлайн
                 return if (onlineCount == 0) {
                     activeRoomsRef.removeValue()
