@@ -56,7 +56,7 @@ class RoomActivity : AppCompatActivity() {
         setupPresenceSystem()
         checkOwnerStatus()
         setupListeners()
-        setupActiveRoomListener()
+
     }
 
     private fun initializeUI() {
@@ -75,9 +75,19 @@ class RoomActivity : AppCompatActivity() {
     private fun setupFirebaseReferences() {
         currentUserRef = database.getReference("rooms/$roomCode/users/$userKey")
         currentUserRef.child("online").setValue(true)
-            .addOnSuccessListener {
-                database.getReference("active_rooms/$roomCode").setValue(true)
-            }
+
+        // Добавляем комнату в active_rooms только при первом подключении
+        database.getReference("rooms/$roomCode").addListenerForSingleValueEvent(
+            object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (snapshot.exists()) {
+                        database.getReference("active_rooms/$roomCode").setValue(true)
+                    }
+                }
+                override fun onCancelled(error: DatabaseError) {
+                    Log.e(TAG, "Error checking room existence", error.toException())
+                }
+            })
     }
 
     private fun setupPresenceSystem() {
@@ -250,15 +260,17 @@ class RoomActivity : AppCompatActivity() {
             scheduleRoomCleanupWorker()
         }
     }
-
     private fun exitRoomProperly() {
         currentUserRef.child("online").onDisconnect().cancel()
         currentUserRef.child("online").setValue(false)
             .addOnCompleteListener {
-                Handler(Looper.getMainLooper()).postDelayed({
-                    checkAndCleanupRoom()
-                }, 2000)
-                finish()
+                // Удаляем из active_rooms только если комната полностью очищена
+                RoomManager.checkAndCleanRoom(roomCode, database) { committed ->
+//                    if (committed) {
+//                        database.getReference("active_rooms/$roomCode").removeValue()
+//                    }
+                    finish()
+                }
             }
     }
 
@@ -268,20 +280,7 @@ class RoomActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupActiveRoomListener() {
-        database.getReference("active_rooms/$roomCode").addValueEventListener(
-            object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    if (!snapshot.exists()) {
-                        finish()
-                    }
-                }
-
-                override fun onCancelled(error: DatabaseError) {
-                    Log.e(TAG, "Ошибка слушателя active_rooms", error.toException())
-                }
-            })
-    }
+//
 
     private fun scheduleRoomCleanupWorker() {
         val constraints = Constraints.Builder()

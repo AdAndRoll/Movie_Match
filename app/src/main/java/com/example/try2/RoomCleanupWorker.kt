@@ -9,36 +9,41 @@ import com.google.firebase.database.*
 
 
 
-// Общий объект для работы с комнатами
 object RoomManager {
     fun checkAndCleanRoom(roomCode: String, database: FirebaseDatabase, callback: (Boolean) -> Unit) {
         val roomRef = database.getReference("rooms/$roomCode")
+        val activeRoomsRef = database.getReference("active_rooms/$roomCode")
+
         roomRef.runTransaction(object : Transaction.Handler {
             override fun doTransaction(mutableData: MutableData): Transaction.Result {
-                val usersData = mutableData.child("users")
-                var onlineCount = 0L
-
-                // Проходим по всем пользователям в комнате и считаем, сколько помечено как online.
-                for (userSnapshot in usersData.children) {
-                    val online = userSnapshot.child("online").getValue(Boolean::class.java) ?: false
-                    if (online) onlineCount++
+                // 1. Добавляем проверку существования комнаты
+                if (!mutableData.hasChildren()) {
+                    return Transaction.abort()
                 }
 
-                // Если ни один пользователь не онлайн, очищаем комнату и удаляем запись active_rooms.
-                if (onlineCount == 0L) {
-                    // Удаляем запись в active_rooms
-                    database.getReference("active_rooms/$roomCode").removeValue()
-                    // Удаляем данные комнаты (например, при окончательном уходе всех)
+                // 2. Улучшенная проверка online-статуса
+                var onlineCount = 0
+                mutableData.child("users").children.forEach { user ->
+                    if (user.child("online").getValue(Boolean::class.java) == true) {
+                        onlineCount++
+                    }
+                }
+
+                // 3. Удаляем только при полном отсутствии онлайн
+                return if (onlineCount == 0) {
+                    activeRoomsRef.removeValue()
                     mutableData.value = null
+                    Transaction.success(mutableData)
+                } else {
+                    // 4. Явно сохраняем active_rooms
+                    activeRoomsRef.setValue(true)
+                    Transaction.abort()
                 }
-                // Иначе оставляем данные без изменений.
-                return Transaction.success(mutableData)
             }
 
             override fun onComplete(error: DatabaseError?, committed: Boolean, currentData: DataSnapshot?) {
-                if (error != null) {
-                    Log.e("RoomManager", "Ошибка очистки комнаты: ${error.message}")
-                }
+                // 5. Логируем результат
+                Log.d("RoomManager", "Transaction result: ${committed}, Error: ${error?.message}")
                 callback(committed)
             }
         })
@@ -48,15 +53,27 @@ object RoomManager {
 
 
 
-
 class RoomCleanupWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
         val roomCode = inputData.getString("roomCode") ?: return Result.failure()
         val database = FirebaseDatabase.getInstance()
 
-        RoomManager.checkAndCleanRoom(roomCode, database) { committed ->
-            Log.d(TAG, "Фоновая проверка: ${if (committed) "успешно" else "не удалось"}")
-        }
+        database.getReference("rooms/$roomCode").addListenerForSingleValueEvent(
+            object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (!snapshot.exists()) return
+
+                    RoomManager.checkAndCleanRoom(roomCode, database) { committed ->
+                        if (committed) {
+                            database.getReference("active_rooms/$roomCode").removeValue()
+                        }
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.w(TAG, "Worker room check cancelled")
+                }
+            })
 
         return Result.success()
     }
