@@ -311,6 +311,8 @@ class RoomActivity : AppCompatActivity() {
         val name: String? = null,
         val ready: Boolean = false,
         val online: Boolean = true,
-        val last_active: Long = 0
+        val last_active: Long = 0,
+
+        val filtersSelected: Boolean = false // <- Новое поле
     )
 }

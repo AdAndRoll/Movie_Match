@@ -9,6 +9,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.slider.RangeSlider
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
 import kotlinx.coroutines.*
 import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
@@ -24,14 +26,13 @@ class MovieSearchActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_movie_search)
 
-        // Инициализация компонентов
         yearRangeSlider = findViewById(R.id.yearRangeSlider)
         yearRangeText = findViewById(R.id.yearRangeText)
         genreSpinner = findViewById(R.id.genreSpinner)
         searchButton = findViewById(R.id.searchButton)
+
         yearRangeSlider.setValues(1990f, 2024f)
 
-        // Установка обработчика ползунка
         yearRangeSlider.addOnChangeListener { _, _, _ ->
             val range = yearRangeSlider.values
             val startYear = range[0].toInt()
@@ -39,24 +40,123 @@ class MovieSearchActivity : AppCompatActivity() {
             yearRangeText.text = "Выбранные года: $startYear - $endYear"
         }
 
-        // Настройка выпадающего списка для жанров
         val genres = listOf("драма", "ужасы", "комедия", "боевик", "фантастика")
-        val adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_dropdown_item,
-            genres
-        )
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, genres)
         genreSpinner.adapter = adapter
 
-        // Обработчик кнопки поиска
         searchButton.setOnClickListener {
             val selectedYears = yearRangeSlider.values
-            // Преобразуем значения в строковый список (List<String>)
-            val yearRange = listOf("${selectedYears[0].toInt()}-${selectedYears[1].toInt()}")
+            val fromYear = selectedYears[0].toInt()
+            val toYear = selectedYears[1].toInt()
             val selectedGenre = genreSpinner.selectedItem as String
-            println("Searching for movies with genres: $selectedGenre, year range: $yearRange")
-            // Вызов API с выбранными параметрами
-            searchMovies(selectedGenre, yearRange)
+            val roomId = intent.getStringExtra("ROOM_CODE") ?: return@setOnClickListener
+
+            saveFiltersToFirebase(selectedGenre, fromYear, toYear)
+            saveUserFiltersSelected(roomId)
+
+            checkAllUsersReadyForSearch(roomId) {
+                loadAllFiltersAndSearch(roomId)
+            }
+        }
+    }
+
+    private fun saveFiltersToFirebase(genre: String, fromYear: Int, toYear: Int) {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val roomId = intent.getStringExtra("ROOM_CODE") ?: return
+
+        val filtersRef = FirebaseDatabase.getInstance()
+            .getReference("rooms")
+            .child(roomId)
+            .child("filters")
+            .child(userId)
+
+        val filterData = mapOf(
+            "genres" to listOf(genre),
+            "years" to mapOf(
+                "from" to fromYear,
+                "to" to toYear
+            )
+        )
+
+        filtersRef.setValue(filterData)
+            .addOnSuccessListener {
+                Toast.makeText(this, "Фильтры сохранены", Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Ошибка при сохранении фильтров", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun saveUserFiltersSelected(roomId: String) {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+
+        val userRef = FirebaseDatabase.getInstance()
+            .getReference("rooms")
+            .child(roomId)
+            .child("users")
+            .child(userId)
+
+        userRef.child("filtersSelected").setValue(true)
+    }
+
+    private fun checkAllUsersReadyForSearch(roomId: String, onAllReady: () -> Unit) {
+        val usersRef = FirebaseDatabase.getInstance()
+            .getReference("rooms")
+            .child(roomId)
+            .child("users")
+
+        usersRef.get().addOnSuccessListener { snapshot ->
+            val allReady = snapshot.children.all { userSnap ->
+                val isSelected = userSnap.child("filtersSelected").getValue(Boolean::class.java) ?: false
+                isSelected
+            }
+
+            if (allReady) {
+                onAllReady()
+            } else {
+                Toast.makeText(this, "Ожидание других участников...", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun loadAllFiltersAndSearch(roomId: String) {
+        val filtersRef = FirebaseDatabase.getInstance()
+            .getReference("rooms")
+            .child(roomId)
+            .child("filters")
+
+        filtersRef.get().addOnSuccessListener { dataSnapshot ->
+            val allGenres = mutableSetOf<String>()
+            var minYear = Int.MAX_VALUE
+            var maxYear = Int.MIN_VALUE
+
+            for (userSnapshot in dataSnapshot.children) {
+                val userFilters = userSnapshot.value as? Map<*, *> ?: continue
+                val genres = userFilters["genres"] as? List<*> ?: continue
+                val years = userFilters["years"] as? Map<*, *> ?: continue
+
+                genres.forEach { genre ->
+                    (genre as? String)?.let { allGenres.add(it) }
+                }
+
+                val from = (years["from"] as? Long)?.toInt() ?: continue
+                val to = (years["to"] as? Long)?.toInt() ?: continue
+
+                if (from < minYear) minYear = from
+                if (to > maxYear) maxYear = to
+            }
+
+            if (allGenres.isEmpty() || minYear == Int.MAX_VALUE || maxYear == Int.MIN_VALUE) {
+                Toast.makeText(this, "Недостаточно данных для поиска", Toast.LENGTH_SHORT).show()
+                return@addOnSuccessListener
+            }
+
+            val genresAsString = allGenres.joinToString(",")
+            val yearRangeList = listOf(minYear.toString(), maxYear.toString())
+
+            searchMovies(genresAsString, yearRangeList)
+        }.addOnFailureListener {
+            Toast.makeText(this, "Ошибка получения фильтров", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -64,59 +164,62 @@ class MovieSearchActivity : AppCompatActivity() {
         val apiClient = MovieApiClient("T31MD52-6ZJ4RVQ-KBK3C0T-0AVR9WS")
         val genres = listOf(genre)
 
-        // Кодируем жанр для передачи в URL
         val encodedGenre = try {
             URLEncoder.encode(genres[0], "UTF-8")
         } catch (e: UnsupportedEncodingException) {
             e.printStackTrace()
-            genres[0] // Если кодировка не удалась, используем исходное значение
+            genres[0]
         }
 
-        // Формируем строку параметра year для URL
         val yearRangeString = when {
-            yearRange.size == 1 -> yearRange[0] // Один год, например "2015"
-            yearRange.size == 2 -> "${yearRange[0]}-${yearRange[1]}" // Диапазон лет, например "2010-2020"
-            else -> yearRange.joinToString(",") // Несколько лет, например "2010,2012,2015"
+            yearRange.size == 1 -> yearRange[0]
+            yearRange.size == 2 -> "${yearRange[0]}-${yearRange[1]}"
+            else -> yearRange.joinToString(",")
         }
 
-        // Запуск корутины для выполнения запроса в фоновом потоке
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // Вызов API в фоновом потоке
-                val movieSearchResponse = apiClient.searchMovies(genres, yearRange)
+                val movieSearchResponse = apiClient.searchMovies(genres, listOf(yearRangeString))
                 println("Response: $movieSearchResponse")
 
-                // Формируем запрос URL с передачей параметров
-                val url = "https://api.kinopoisk.dev/v1.4/movie?page=1&limit=5&selectFields=id&selectFields=name&selectFields=year&selectFields=movieLength&selectFields=rating&selectFields=description&selectFields=genres&selectFields=poster&notNullFields=name&notNullFields=description&notNullFields=poster.url&sortField=rating.kp&sortType=-1&type=movie&year=$yearRangeString&genres.name=$encodedGenre"
+                val url =
+                    "https://api.kinopoisk.dev/v1.4/movie?page=1&limit=5&selectFields=id&selectFields=name&selectFields=year&selectFields=movieLength&selectFields=rating&selectFields=description&selectFields=genres&selectFields=poster&notNullFields=name&notNullFields=description&notNullFields=poster.url&sortField=rating.kp&sortType=-1&type=movie&year=$yearRangeString&genres.name=$encodedGenre"
                 println("Request URL: $url")
 
-                // После выполнения запроса, возвращаемся на главный поток для обновления UI
                 withContext(Dispatchers.Main) {
                     if (movieSearchResponse != null) {
                         val movies = movieSearchResponse.docs
                         if (!movies.isNullOrEmpty()) {
-                            // Выводим название первого фильма в логи
                             println("First movie: ${movies[0].name}")
-                            //Toast.makeText(this@MovieSearchActivity, "First movie: ${movies[0].name}", Toast.LENGTH_SHORT).show()
-                            // Передаем данные в ChooseActivity
-                            val intent = Intent(this@MovieSearchActivity, ChooseActivity::class.java)
-                            // Передаем список фильмов через сериализацию или Parcelable
+                            val intent =
+                                Intent(this@MovieSearchActivity, ChooseActivity::class.java)
                             intent.putParcelableArrayListExtra("MOVIES_LIST", ArrayList(movies))
                             startActivity(intent)
                         } else {
                             println("No movies found")
-                            Toast.makeText(this@MovieSearchActivity, "No movies found", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                this@MovieSearchActivity,
+                                "No movies found",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     } else {
                         println("Failed to fetch movie data")
-                        Toast.makeText(this@MovieSearchActivity, "Failed to fetch movie data", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this@MovieSearchActivity,
+                            "Failed to fetch movie data",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    // Обработка ошибок (например, отсутствие интернета)
                     e.printStackTrace()
-                    Toast.makeText(this@MovieSearchActivity, "Error occurred: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this@MovieSearchActivity,
+                        "Error occurred: ${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         }
