@@ -33,11 +33,18 @@
         android:layout_marginTop="16dp"
         android:spinnerMode="dropdown" />
 
+    <Button
+        android:id="@+id/confirmFiltersButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Подтвердить выбор" />
+
     <!-- Кнопка для выполнения запроса -->
     <Button
         android:id="@+id/searchButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="Искать фильмы" />
+        android:text="Искать фильмы"
+        android:enabled="false"/>
 </LinearLayout>
