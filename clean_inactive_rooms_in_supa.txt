@@ -1,0 +1,18 @@
+CREATE OR REPLACE FUNCTION clean_inactive_rooms()
+RETURNS void AS $$
+BEGIN
+    -- Удаляем комнаты, где все пользователи оффлайн
+    DELETE FROM rooms
+    WHERE id IN (
+        SELECT r.id
+        FROM rooms r
+        LEFT JOIN user_sessions us ON r.id = us.room_id
+        GROUP BY r.id
+        HAVING SUM(CASE WHEN us.is_online = TRUE THEN 1 ELSE 0 END) = 0
+    );
+
+    -- Дополнительно удаляем связанные сессии, если комнаты удалены
+    DELETE FROM user_sessions
+    WHERE room_id NOT IN (SELECT id FROM rooms);
+END;
+$$ LANGUAGE plpgsql;
