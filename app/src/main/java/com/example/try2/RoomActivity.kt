@@ -111,6 +111,7 @@ class RoomActivity : AppCompatActivity() {
         }
     }
 
+
     override fun onDestroy() {
         lifecycleScope.launch {
             withContext(Dispatchers.IO) {
