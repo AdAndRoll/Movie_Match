@@ -1,6 +1,7 @@
 package com.example.try2
 
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
@@ -10,7 +11,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class RoomActivity : AppCompatActivity() {
 
@@ -18,92 +21,103 @@ class RoomActivity : AppCompatActivity() {
     private lateinit var roomCode: String
     private lateinit var usersAdapter: UserAdapter
     private lateinit var tvRoomCode: TextView
-    private lateinit var rvUsers: RecyclerView
-    private lateinit var btnReady: Button
+    private lateinit var btnExit: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_room)
 
+        initViews()
+        setupRecyclerView()
+        setupButtons()
+        setOnlineStatus(true)
+        loadUsers()
+    }
+
+    private fun initViews() {
         tvRoomCode = findViewById(R.id.tvRoomCode)
-        rvUsers = findViewById(R.id.rvUsers)
-        btnReady = findViewById(R.id.btnReady)
-
-        roomId = intent.getStringExtra("ROOM_ID") ?: return finish()
+        roomId = intent.getStringExtra("ROOM_ID") ?: run {
+            finish()
+            return
+        }
         roomCode = intent.getStringExtra("ROOM_CODE") ?: "------"
-
         tvRoomCode.text = "Код комнаты: $roomCode"
+    }
 
+    private fun setupRecyclerView() {
+        val rvUsers = findViewById<RecyclerView>(R.id.rvUsers)
         rvUsers.layoutManager = LinearLayoutManager(this)
         usersAdapter = UserAdapter()
         rvUsers.adapter = usersAdapter
-        android.util.Log.d("RoomActivity", "Получен roomId: $roomId, roomCode: $roomCode")
-        btnReady.setOnClickListener {
-            // пока без реализации
+    }
+
+    private fun setupButtons() {
+        btnExit = findViewById<Button>(R.id.btnExit).apply {
+            setOnClickListener { exitRoom() }
         }
+        findViewById<Button>(R.id.btnReady).setOnClickListener {
+            // Реализация кнопки готовности
+        }
+    }
 
-        loadUsers()
-
-        setOnlineStatus(true)
+    private fun exitRoom() {
+        setOnlineStatus(false)
+        finish()
     }
 
     private fun loadUsers() {
-        android.util.Log.d("RoomActivity", "Загрузка пользователей для комнаты $roomId")
-
         lifecycleScope.launch {
             try {
-                val result = Supabase.client.postgrest["user_sessions"]
-                    .select {
-                        filter("room_id", FilterOperator.EQ, roomId)
-                    }
-                    .decodeList<UserSession>()
-
-                android.util.Log.d("RoomActivity", "Загружено пользователей: ${result.size}")
-                result.forEach { user ->
-                    android.util.Log.d("RoomActivity", "Пользователь: $user")
+                val result = withContext(Dispatchers.IO) {
+                    Supabase.client.postgrest["user_sessions"]
+                        .select { filter("room_id", FilterOperator.EQ, roomId) }
+                        .decodeList<UserSession>()
                 }
-
                 usersAdapter.submitList(result)
+                Log.d("RoomActivity", "Загружено пользователей: ${result.size}")
             } catch (e: Exception) {
-                android.util.Log.e("RoomActivity", "Ошибка загрузки пользователей", e)
+                Log.e("RoomActivity", "Ошибка загрузки пользователей", e)
             }
         }
     }
-
 
     private fun setOnlineStatus(online: Boolean) {
-        lifecycleScope.launch {
-            val userId = UserManager.getUserId(this@RoomActivity)
-            android.util.Log.d("RoomActivity", "Установка is_online=$online для userId=$userId в комнате $roomId")
-
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
-                Supabase.client.postgrest["user_sessions"]
-                    .update(
-                        {
-                            set("is_online", online)
-                        }
-                    ) {
-                        filter("user_id", FilterOperator.EQ, userId)
-                        filter("room_id", FilterOperator.EQ, roomId)
-                    }
-
-                android.util.Log.d("RoomActivity", "is_online обновлено")
+                val userId = UserManager.getUserId(this@RoomActivity)
+                Supabase.client.postgrest["user_sessions"].update(
+                    { set("is_online", online) }
+                ) {
+                    filter("user_id", FilterOperator.EQ, userId)
+                    filter("room_id", FilterOperator.EQ, roomId)
+                }
+                Log.d("RoomActivity", "Статус обновлен: is_online=$online")
             } catch (e: Exception) {
-                android.util.Log.e("RoomActivity", "Ошибка обновления is_online", e)
+                Log.e("RoomActivity", "Ошибка обновления статуса", e)
             }
         }
     }
 
-
-    @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        setOnlineStatus(false)
+        exitRoom()
         super.onBackPressed()
     }
 
+    override fun onPause() {
+        super.onPause()
+        if (isFinishing) {
+            setOnlineStatus(false)
+        }
+    }
+
     override fun onDestroy() {
-        super.onDestroy()
-        setOnlineStatus(false)
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                // Ожидание завершения операций
+            }
+        }.invokeOnCompletion {
+            super.onDestroy()
+        }
     }
 }

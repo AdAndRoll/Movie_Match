@@ -3,6 +3,7 @@ package com.example.try2
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
@@ -12,12 +13,16 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var loadingDialog: AlertDialog
+    private lateinit var reconnectButton: Button
+    private var roomCheckJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,78 +30,109 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         Supabase.initialize(applicationContext)
+        initLoadingDialog()
+        setupUI()
+        startRoomChecker()
+    }
 
+    private fun initLoadingDialog() {
         loadingDialog = AlertDialog.Builder(this)
             .setView(layoutInflater.inflate(R.layout.dialog_loading, null))
             .setCancelable(false)
             .create()
-
-        val createButton: Button = findViewById(R.id.CreateRoomButton)
-        val joinButton: Button = findViewById(R.id.JoinButton)
-
-        createButton.setOnClickListener { createRoom() }
-        joinButton.setOnClickListener { showJoinDialog() }
     }
 
-    private fun createRoom() {
-        Log.d("MainActivity", "Кнопка 'Создать комнату' нажата")
-        loadingDialog.show()
-        lifecycleScope.launch {
-            try {
-                Log.d("MainActivity", "Получаем userId")
-                val userId = UserManager.getUserId(this@MainActivity)
+    private fun setupUI() {
+        reconnectButton = findViewById(R.id.reconnectButton)
+        findViewById<Button>(R.id.CreateRoomButton).setOnClickListener { createRoom() }
+        findViewById<Button>(R.id.JoinButton).setOnClickListener { showJoinDialog() }
 
-                Log.d("MainActivity", "Генерируем уникальный код комнаты...")
-                val code = generateUniqueRoomCode()
-                Log.d("MainActivity", "Сгенерирован код комнаты: $code")
-
-                Log.d("MainActivity", "Создаём комнату в Supabase")
-                val room = Supabase.client.postgrest["rooms"]
-                    .insert(RoomInsert(code = code, status = "waiting"))
-                    .decodeSingle<Room>()
-
-                Log.d("MainActivity", "Комната создана с id: ${room.id}")
-
-                Log.d("MainActivity", "Добавляем пользователя $userId в user_sessions")
-                Supabase.client.postgrest["user_sessions"].insert(
-                    UserSession(
-                        user_id = userId,
-                        room_id = room.id,
-                        is_online = true,
-                        last_active = Clock.System.now().toString()
-                    ),
-                    upsert = true,
-                    onConflict = "user_id,room_id"
-                )
-
-                Log.d("MainActivity", "Пользователь успешно добавлен в сессию")
-                Log.d("MainActivity", "Переходим в RoomActivity")
-                goToRoom(room.id, room.code)
-
-            } catch (e: Exception) {
-                logError("CreateRoomError", e)
-                showError("Ошибка создания комнаты: ${e.localizedMessage}")
-            } finally {
-                Log.d("MainActivity", "Скрываем диалог загрузки")
-                loadingDialog.dismiss()
+        reconnectButton.setOnClickListener {
+            UserManager.getLastRoom(this)?.let { (id, code) ->
+                if (id != null) {
+                    if (code != null) {
+                        attemptReconnect(id, code)
+                    }
+                }
             }
         }
     }
 
+    private fun startRoomChecker() {
+        roomCheckJob?.cancel()
+        roomCheckJob = lifecycleScope.launch {
+            while (true) {
+                checkLastRoom()
+                delay(30000) // Проверка каждые 30 секунд
+            }
+        }
+    }
+
+    private fun checkLastRoom() {
+        UserManager.getLastRoom(this)?.let { (roomId, roomCode) ->
+            lifecycleScope.launch {
+                try {
+                    val exists = Supabase.client.postgrest["rooms"]
+                        .select {
+                            if (roomId != null) {
+                                eq("id", roomId)
+                            }
+                        }
+                        .decodeSingleOrNull<Room>() != null
+
+                    runOnUiThread {
+                        if (exists) {
+                            reconnectButton.text = "Переподключиться к: $roomCode"
+                            reconnectButton.visibility = View.VISIBLE
+                        } else {
+                            UserManager.clearLastRoom(this@MainActivity)
+                            reconnectButton.visibility = View.GONE
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("RoomCheck", "Ошибка проверки комнаты", e)
+                }
+            }
+        } ?: run {
+            reconnectButton.visibility = View.GONE
+        }
+    }
+
+    private fun createRoom() {
+        Log.d("MainActivity", "Создание комнаты...")
+        loadingDialog.show()
+        lifecycleScope.launch {
+            try {
+                val userId = UserManager.getUserId(this@MainActivity)
+                val code = generateUniqueRoomCode()
+
+                val room = Supabase.client.postgrest["rooms"]
+                    .insert(RoomInsert(code = code, status = "waiting"))
+                    .decodeSingle<Room>()
+
+                updateUserSession(userId, room.id)
+                UserManager.saveLastRoom(this@MainActivity, room.id, room.code)
+                goToRoom(room.id, room.code)
+
+            } catch (e: Exception) {
+                handleError("CreateRoomError", "Ошибка создания комнаты", e)
+            } finally {
+                loadingDialog.dismiss()
+            }
+        }
+    }
 
     private fun showJoinDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_join_room, null)
         val etCode = dialogView.findViewById<EditText>(R.id.etCode)
 
         AlertDialog.Builder(this)
-            .setTitle("Вход в комнату")
+            .setTitle("Присоединиться к комнате")
             .setView(dialogView)
-            .setPositiveButton("Присоединиться") { _, _ ->
-                val code = etCode.text.toString().trim().uppercase()
-                if (code.length == 6) {
-                    joinRoom(code)
-                } else {
-                    showError("Код должен содержать 6 символов")
+            .setPositiveButton("Подключиться") { _, _ ->
+                etCode.text.toString().trim().let { code ->
+                    if (code.length == 6) joinRoom(code.uppercase())
+                    else showError("Некорректный код комнаты")
                 }
             }
             .setNegativeButton("Отмена", null)
@@ -107,65 +143,90 @@ class MainActivity : AppCompatActivity() {
         loadingDialog.show()
         lifecycleScope.launch {
             try {
-                val userId = UserManager.getUserId(this@MainActivity)
-
                 val room = Supabase.client.postgrest["rooms"]
                     .select { eq("code", code) }
                     .decodeSingle<Room>()
 
-                Supabase.client.postgrest["user_sessions"].insert(
-                    UserSession(
-                        user_id = userId,
-                        room_id = room.id,
-                        is_online = true,
-                        last_active = Clock.System.now().toString()
-                    ),
-                    upsert = true,
-                    onConflict = "user_id,room_id"
-                )
-
+                val userId = UserManager.getUserId(this@MainActivity)
+                updateUserSession(userId, room.id)
+                UserManager.saveLastRoom(this@MainActivity, room.id, room.code)
                 goToRoom(room.id, room.code)
 
             } catch (e: Exception) {
-                logError("JoinRoomError", e)
-                showError("Ошибка подключения: ${e.localizedMessage}")
+                handleError("JoinRoomError", "Ошибка подключения", e)
             } finally {
                 loadingDialog.dismiss()
             }
         }
     }
 
-    private suspend fun generateUniqueRoomCode(): String {
-        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-        var attempt = 0
-        while (attempt < 10) {
-            val code = (1..6).joinToString("") { chars.random().toString() }
-            Log.d("RoomCode", "Пробуем код: $code (попытка $attempt)")
+    private fun attemptReconnect(roomId: String, roomCode: String) {
+        loadingDialog.show()
+        lifecycleScope.launch {
             try {
-                val response = Supabase.client.postgrest["rooms"]
-                    .select { eq("code", code) }
-                    .decodeList<Room>()
-                if (response.isEmpty()) {
-                    Log.d("RoomCode", "Код $code уникален")
-                    return code
+                // Двойная проверка перед переходом
+                val exists = Supabase.client.postgrest["rooms"]
+                    .select { eq("id", roomId) }
+                    .decodeSingleOrNull<Room>() != null
+
+                if (exists) {
+                    val userId = UserManager.getUserId(this@MainActivity)
+                    updateUserSession(userId, roomId)
+                    goToRoom(roomId, roomCode)
+                } else {
+                    showError("Комната больше не существует")
+                    UserManager.clearLastRoom(this@MainActivity)
+                    reconnectButton.visibility = View.GONE
                 }
             } catch (e: Exception) {
-                Log.e("RoomCode", "Ошибка при проверке кода: ${e.localizedMessage}")
-                throw e
+                handleError("ReconnectError", "Ошибка переподключения", e)
+            } finally {
+                loadingDialog.dismiss()
             }
-            attempt++
         }
-        throw IllegalStateException("Не удалось сгенерировать уникальный код комнаты после 10 попыток.")
     }
 
+    private suspend fun updateUserSession(userId: String, roomId: String) {
+        Supabase.client.postgrest["user_sessions"].insert(
+            UserSession(
+                user_id = userId,
+                room_id = roomId,
+                is_online = true,
+                last_active = Clock.System.now().toString()
+            ),
+            upsert = true,
+            onConflict = "user_id,room_id"
+        )
+    }
+
+    private suspend fun generateUniqueRoomCode(): String {
+        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        repeat(10) { attempt ->
+            val code = List(6) { chars.random() }.joinToString("")
+            try {
+                val exists = Supabase.client.postgrest["rooms"]
+                    .select { eq("code", code) }
+                    .decodeList<Room>()
+                    .isNotEmpty()
+                if (!exists) return code
+            } catch (e: Exception) {
+                Log.e("RoomCode", "Ошибка генерации кода", e)
+                if (attempt == 9) throw e
+            }
+        }
+        throw IllegalStateException("Не удалось создать уникальный код комнаты")
+    }
 
     private fun goToRoom(roomId: String, code: String) {
-        startActivity(
-            Intent(this, RoomActivity::class.java).apply {
-                putExtra("ROOM_ID", roomId)
-                putExtra("ROOM_CODE", code)
-            }
-        )
+        startActivity(Intent(this, RoomActivity::class.java).apply {
+            putExtra("ROOM_ID", roomId)
+            putExtra("ROOM_CODE", code)
+        })
+    }
+
+    private fun handleError(tag: String, message: String, e: Exception) {
+        logError(tag, e)
+        showError("$message: ${e.localizedMessage ?: "Неизвестная ошибка"}")
     }
 
     private fun showError(message: String) {
@@ -177,7 +238,12 @@ class MainActivity : AppCompatActivity() {
     private fun logError(tag: String, e: Exception) {
         Log.e(tag, """
             Ошибка: ${e.message}
-            Stack trace: ${Log.getStackTraceString(e)}
+            ${Log.getStackTraceString(e)}
         """.trimIndent())
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        roomCheckJob?.cancel()
     }
 }

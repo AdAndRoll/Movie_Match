@@ -36,7 +36,8 @@ object Supabase {
 object UserManager {
     private const val PREFS_NAME = "user_prefs"
     private const val USER_ID_KEY = "user_id"
-
+    private const val LAST_ROOM_ID_KEY = "last_room_id"
+    private const val LAST_ROOM_CODE_KEY = "last_room_code"
     fun getUserId(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getString(USER_ID_KEY, null) ?: run {
@@ -44,6 +45,25 @@ object UserManager {
             prefs.edit().putString(USER_ID_KEY, newId).apply()
             newId
         }
+    }
+    fun saveLastRoom(context: Context, roomId: String, roomCode: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putString(LAST_ROOM_ID_KEY, roomId)
+            .putString(LAST_ROOM_CODE_KEY, roomCode)
+            .apply()
+    }
+
+    fun getLastRoom(context: Context): Pair<String?, String?> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(LAST_ROOM_ID_KEY, null) to
+                prefs.getString(LAST_ROOM_CODE_KEY, null)
+    }
+
+    fun clearLastRoom(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .remove(LAST_ROOM_ID_KEY)
+            .remove(LAST_ROOM_CODE_KEY)
+            .apply()
     }
 }
 

@@ -1,5 +1,6 @@
 package com.example.try2
 
+import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -34,4 +35,5 @@ class UserAdapter : RecyclerView.Adapter<UserAdapter.ViewHolder>() {
             tvStatus.text = if (session.is_online) "🟢 Онлайн" else "🔴 Оффлайн"
         }
     }
+
 }
