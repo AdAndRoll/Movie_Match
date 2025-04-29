@@ -40,6 +40,8 @@ android {
 
     dependencies {
 
+
+
         implementation (libs.postgrest.kt)
         implementation (libs.realtime.kt)
         implementation (libs.gotrue.kt)
@@ -47,7 +49,7 @@ android {
         implementation (libs.kotlinx.serialization.json)
 
         implementation(libs.kotlin.stdlib)
-        implementation (libs.postgrest.kt)
+
         implementation (libs.ktor.client.okhttp)
 
         implementation(libs.serialization.converter)
@@ -63,6 +65,7 @@ android {
         implementation(libs.androidx.constraintlayout)
         implementation(libs.androidx.recyclerview)
         implementation(libs.androidx.room.common.jvm)
+        implementation(libs.androidx.lifecycle.runtime.android)
 
         testImplementation(libs.junit)
         androidTestImplementation(libs.androidx.junit)

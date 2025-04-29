@@ -12,7 +12,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import io.github.jan.supabase.postgrest.postgrest
-import io.github.jan.supabase.postgrest.query.FilterOperator
+import io.github.jan.supabase.postgrest.query.Returning
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -48,11 +48,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.JoinButton).setOnClickListener { showJoinDialog() }
 
         reconnectButton.setOnClickListener {
-            UserManager.getLastRoom(this)?.let { (id, code) ->
-                if (id != null) {
-                    if (code != null) {
-                        attemptReconnect(id, code)
-                    }
+            UserManager.getLastRoom(this).let { (id, code) ->
+                if (id != null && code != null) {
+                    attemptReconnect(id, code)
                 }
             }
         }
@@ -63,19 +61,20 @@ class MainActivity : AppCompatActivity() {
         roomCheckJob = lifecycleScope.launch {
             while (true) {
                 checkLastRoom()
-                delay(30000) // Проверка каждые 30 секунд
+                delay(30000)
             }
         }
     }
 
     private fun checkLastRoom() {
-        UserManager.getLastRoom(this)?.let { (roomId, roomCode) ->
+        UserManager.getLastRoom(this).let { (roomId, roomCode) ->
+
             lifecycleScope.launch {
                 try {
-                    val exists = Supabase.client.postgrest["rooms"]
+                    val exists = Supabase.client.postgrest.from("rooms")
                         .select {
-                            if (roomId != null) {
-                                eq("id", roomId)
+                            filter {
+                                eq("id", roomId ?: "")
                             }
                         }
                         .decodeSingleOrNull<Room>() != null
@@ -99,28 +98,46 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun createRoom() {
-        Log.d("MainActivity", "Создание комнаты...")
         loadingDialog.show()
         lifecycleScope.launch {
             try {
                 val userId = UserManager.getUserId(this@MainActivity)
                 val code = generateUniqueRoomCode()
 
-                val room = Supabase.client.postgrest["rooms"]
-                    .insert(RoomInsert(code = code, status = "waiting"))
-                    .decodeSingle<Room>()
+                // 1) Вставляем новую комнату (не ждём от insert никакого тела)
+                Supabase.client.postgrest
+                    .from("rooms")
+                    .insert(listOf(RoomInsert(code = code, status = "waiting")))
 
+                // 2) Делаем отдельный запрос, чтобы получить только что созданную комнату
+                val room = Supabase.client.postgrest
+                    .from("rooms")
+                    .select {
+                        filter {
+                            eq("code", code)
+                        }
+                    }
+                    .decodeSingle<Room>()  // или decodeList<Room>().first()
+
+                // Дальше как и раньше
                 updateUserSession(userId, room.id)
                 UserManager.saveLastRoom(this@MainActivity, room.id, room.code)
                 goToRoom(room.id, room.code)
 
             } catch (e: Exception) {
-                handleError("CreateRoomError", "Ошибка создания комнаты", e)
+                Log.e("CreateRoomError", """
+                Ошибка: ${e.message}
+                ${Log.getStackTraceString(e)}
+            """.trimIndent())
             } finally {
                 loadingDialog.dismiss()
             }
         }
     }
+
+
+
+
 
     private fun showJoinDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_join_room, null)
@@ -130,9 +147,11 @@ class MainActivity : AppCompatActivity() {
             .setTitle("Присоединиться к комнате")
             .setView(dialogView)
             .setPositiveButton("Подключиться") { _, _ ->
-                etCode.text.toString().trim().let { code ->
-                    if (code.length == 6) joinRoom(code.uppercase())
-                    else showError("Некорректный код комнаты")
+                val code = etCode.text.toString().trim()
+                if (code.length == 6) {
+                    joinRoom(code.uppercase())
+                } else {
+                    showError("Некорректный код комнаты")
                 }
             }
             .setNegativeButton("Отмена", null)
@@ -143,8 +162,12 @@ class MainActivity : AppCompatActivity() {
         loadingDialog.show()
         lifecycleScope.launch {
             try {
-                val room = Supabase.client.postgrest["rooms"]
-                    .select { eq("code", code) }
+                val room = Supabase.client.postgrest.from("rooms")
+                    .select {
+                        filter {
+                            eq("code", code)
+                        }
+                    }
                     .decodeSingle<Room>()
 
                 val userId = UserManager.getUserId(this@MainActivity)
@@ -164,9 +187,12 @@ class MainActivity : AppCompatActivity() {
         loadingDialog.show()
         lifecycleScope.launch {
             try {
-                // Двойная проверка перед переходом
-                val exists = Supabase.client.postgrest["rooms"]
-                    .select { eq("id", roomId) }
+                val exists = Supabase.client.postgrest.from("rooms")
+                    .select {
+                        filter {
+                            eq("id", roomId)
+                        }
+                    }
                     .decodeSingleOrNull<Room>() != null
 
                 if (exists) {
@@ -187,25 +213,32 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun updateUserSession(userId: String, roomId: String) {
-        Supabase.client.postgrest["user_sessions"].insert(
-            UserSession(
-                user_id = userId,
-                room_id = roomId,
-                is_online = true,
-                last_active = Clock.System.now().toString()
-            ),
-            upsert = true,
-            onConflict = "user_id,room_id"
-        )
+        Supabase.client.postgrest.from("user_sessions")
+            .upsert(
+                listOf(
+                    UserSession(
+                        user_id = userId,
+                        room_id = roomId,
+                        is_online = true,
+                        last_active = Clock.System.now().toString()
+                    )
+                ),
+            )
     }
+
+
 
     private suspend fun generateUniqueRoomCode(): String {
         val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
         repeat(10) { attempt ->
             val code = List(6) { chars.random() }.joinToString("")
             try {
-                val exists = Supabase.client.postgrest["rooms"]
-                    .select { eq("code", code) }
+                val exists = Supabase.client.postgrest.from("rooms")
+                    .select {
+                        filter {
+                            eq("code", code)
+                        }
+                    }
                     .decodeList<Room>()
                     .isNotEmpty()
                 if (!exists) return code
