@@ -87,5 +87,6 @@ data class UserSession(
     val user_id: String,
     val room_id: String,
     val is_online: Boolean,
-    val last_active: String
+    val last_active: String,
+    val is_ready: Boolean = false // Новое поле
 )

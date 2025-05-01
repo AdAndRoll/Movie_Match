@@ -1,5 +1,6 @@
 package com.example.try2
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -47,7 +48,9 @@ class RoomActivity : AppCompatActivity() {
     private lateinit var usersAdapter: UserAdapter
     private lateinit var tvRoomCode: TextView
     private lateinit var btnExit: Button
+    private lateinit var btnReady: Button // Кнопка готовности
     private var userSessionChannel: RealtimeChannel? = null
+    private var isCountdownStarted = false // Флаг для предотвращения повторного отсчета
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,14 +86,37 @@ class RoomActivity : AppCompatActivity() {
         rvUsers.adapter = usersAdapter
     }
 
+
     private fun setupButtons() {
         btnExit = findViewById<Button>(R.id.btnExit).apply {
             setOnClickListener { exitRoom() }
         }
-        findViewById<Button>(R.id.btnReady).setOnClickListener {
-            // Реализация кнопки готовности
+        btnReady = findViewById<Button>(R.id.btnReady).apply {
+            setOnClickListener {
+                lifecycleScope.launch {
+                    try {
+                        val userId = UserManager.getUserId(this@RoomActivity)
+                        withContext(Dispatchers.IO) {
+                            Supabase.client.postgrest["user_sessions"]
+                                .update(
+                                    mapOf("is_ready" to true)
+                                ) {
+                                    filter {
+                                        eq("user_id", userId)
+                                        eq("room_id", roomId)
+                                    }
+                                }
+                        }
+                        Log.d("RoomActivity", "Пользователь $userId готов")
+                        isEnabled = false
+                    } catch (e: Exception) {
+                        Log.e("RoomActivity", "Ошибка обновления is_ready", e)
+                    }
+                }
+            }
         }
     }
+
 
     private fun exitRoom() {
         setOnlineStatus(false)
@@ -112,6 +138,10 @@ class RoomActivity : AppCompatActivity() {
                 }
                 usersAdapter.submitList(result)
                 Log.d("RoomActivity", "Загружено пользователей: ${result.size}")
+                if (!isCountdownStarted && result.isNotEmpty() && result.all { it.is_ready }) {
+                    isCountdownStarted = true
+                    startCountdown()
+                }
             } catch (e: Exception) {
                 Log.e("RoomActivity", "Ошибка загрузки пользователей", e)
             }
@@ -297,6 +327,22 @@ class RoomActivity : AppCompatActivity() {
         }
     }*/
 
+    private fun startCountdown() {
+        lifecycleScope.launch {
+            val countdownTextView = findViewById<TextView>(R.id.countdownTextView) // Добавьте TextView в layout
+            for (i in 5 downTo 0) {
+                countdownTextView.text = if (i > 0) "Переход через $i..." else "Переходим!"
+                Log.d("RoomActivity", "Отсчет: $i")
+                delay(1_000)
+            }
+            // Переход на MovieSearchActivity
+            val intent = Intent(this@RoomActivity, MovieSearchActivity::class.java).apply {
+                putExtra("room_id", roomId)
+            }
+            startActivity(intent)
+            finish() // Закрываем RoomActivity
+        }
+    }
     override fun onDestroy() {
         super.onDestroy()
         lifecycleScope.launch {
