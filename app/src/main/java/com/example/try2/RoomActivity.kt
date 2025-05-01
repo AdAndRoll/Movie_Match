@@ -22,6 +22,7 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.filter.FilterOperator
 import io.github.jan.supabase.postgrest.query.filter.PostgrestFilterBuilder
 import io.github.jan.supabase.realtime.PostgresAction
+import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.realtime.RealtimeChannel
 import io.github.jan.supabase.realtime.RealtimeMessage
 import io.github.jan.supabase.realtime.channel
@@ -30,10 +31,13 @@ import io.github.jan.supabase.realtime.postgresChangeFlow
 import io.github.jan.supabase.realtime.realtime
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 import java.util.Locale.filter
 
 class RoomActivity : AppCompatActivity() {
@@ -55,7 +59,11 @@ class RoomActivity : AppCompatActivity() {
         setupButtons()
         setOnlineStatus(true)
         loadUsers()
-        subscribeToUserSessionChanges()
+        //subscribeToUserSessionChanges()
+
+        startPeriodicUserCheck()
+
+        //testRoomsRealtime()
     }
 
     private fun initViews() {
@@ -97,6 +105,7 @@ class RoomActivity : AppCompatActivity() {
                         .select {
                             filter {
                                 eq("room_id", roomId)
+                                eq("is_online", true) // Загружаем только онлайн-пользователей
                             }
                         }
                         .decodeList<UserSession>()
@@ -159,10 +168,12 @@ class RoomActivity : AppCompatActivity() {
 
 
 
-    private fun subscribeToUserSessionChanges() {
-        val channelName = "realtime:public:user_sessions:room_id=$roomId"
 
-        // Создаем канал без params, так как они не поддерживаются в 2.2.1
+
+/*    private fun subscribeToUserSessionChanges() {
+        val channelName = "realtime:public:user_sessions"
+
+        // Создаем канал
         val channel = Supabase.client.realtime.channel(channelName)
 
         lifecycleScope.launch {
@@ -171,52 +182,66 @@ class RoomActivity : AppCompatActivity() {
                 channel.subscribe()
                 Log.d("RoomActivity", "Subscribed to $channelName")
 
-                // Обрабатываем изменения в таблице user_sessions
+                // Логируем состояние канала
+
+
+                // Обрабатываем изменения через postgresChangeFlow
                 lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                     channel.postgresChangeFlow<PostgresAction>(schema = "public").collect { action ->
-                        Log.d("RoomActivity", "Realtime event: ${action::class.simpleName}")
-
-                        // Проверяем, что событие относится к текущей комнате
-                        val record = when (action) {
-                            is PostgresAction.Insert -> action.record
-                            is PostgresAction.Update -> action.record
-                            is PostgresAction.Delete -> action.oldRecord
-                            else -> null
-                        }
-
-                        val eventRoomId = record?.jsonObject?.get("room_id")?.toString()?.trim('"')
-                        if (eventRoomId != roomId) return@collect // Игнорируем события из других комнат
-
+                        Log.d("RoomActivity", "Realtime event received: ${action::class.simpleName}")
                         when (action) {
                             is PostgresAction.Insert -> {
-                                // Десериализуем JSON в UserSession
-                                val newSession = Json.decodeFromString<UserSession>(action.record.toString())
-                                val currentList = usersAdapter.currentList.toMutableList()
-                                if (!currentList.any { session -> session.user_id == newSession.user_id }) {
-                                    currentList.add(newSession)
-                                    usersAdapter.submitList(currentList)
-                                    Log.d("RoomActivity", "Добавлен пользователь: ${newSession.user_id}")
+                                Log.d("RoomActivity", "Insert record: ${action.record}")
+                                try {
+                                    val newSession = Json.decodeFromString<UserSession>(action.record.toString())
+                                    Log.d("RoomActivity", "Insert event: user_id=${newSession.user_id}, room_id=${newSession.room_id}")
+                                    if (newSession.room_id == roomId) {
+                                        val currentList = usersAdapter.currentList.toMutableList()
+                                        if (!currentList.any { session -> session.user_id == newSession.user_id }) {
+                                            currentList.add(newSession)
+                                            usersAdapter.submitList(currentList)
+                                            Log.d("RoomActivity", "Добавлен пользователь: ${newSession.user_id}")
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("RoomActivity", "Ошибка десериализации Insert: ${action.record}", e)
                                 }
                             }
                             is PostgresAction.Update -> {
-                                val updatedSession = Json.decodeFromString<UserSession>(action.record.toString())
-                                val currentList = usersAdapter.currentList.toMutableList()
-                                val index = currentList.indexOfFirst { session -> session.user_id == updatedSession.user_id }
-                                if (index != -1) {
-                                    currentList[index] = updatedSession
-                                    usersAdapter.submitList(currentList)
-                                    Log.d("RoomActivity", "Обновлен пользователь: ${updatedSession.user_id}")
+                                Log.d("RoomActivity", "Update record: ${action.record}")
+                                try {
+                                    val updatedSession = Json.decodeFromString<UserSession>(action.record.toString())
+                                    Log.d("RoomActivity", "Update event: user_id=${updatedSession.user_id}, room_id=${updatedSession.room_id}")
+                                    if (updatedSession.room_id == roomId) {
+                                        val currentList = usersAdapter.currentList.toMutableList()
+                                        val index = currentList.indexOfFirst { session -> session.user_id == updatedSession.user_id }
+                                        if (index != -1) {
+                                            currentList[index] = updatedSession
+                                            usersAdapter.submitList(currentList)
+                                            Log.d("RoomActivity", "Обновлен пользователь: ${updatedSession.user_id}")
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("RoomActivity", "Ошибка десериализации Update: ${action.record}", e)
                                 }
                             }
                             is PostgresAction.Delete -> {
-                                val deletedSession = Json.decodeFromString<UserSession>(action.oldRecord.toString())
-                                val currentList = usersAdapter.currentList.toMutableList()
-                                currentList.removeAll { session -> session.user_id == deletedSession.user_id }
-                                usersAdapter.submitList(currentList)
-                                Log.d("RoomActivity", "Удален пользователь: ${deletedSession.user_id}")
+                                Log.d("RoomActivity", "Delete oldRecord: ${action.oldRecord}")
+                                try {
+                                    val deletedSession = Json.decodeFromString<UserSession>(action.oldRecord.toString())
+                                    Log.d("RoomActivity", "Delete event: user_id=${deletedSession.user_id}, room_id=${deletedSession.room_id}")
+                                    if (deletedSession.room_id == roomId) {
+                                        val currentList = usersAdapter.currentList.toMutableList()
+                                        currentList.removeAll { session -> session.user_id == deletedSession.user_id }
+                                        usersAdapter.submitList(currentList)
+                                        Log.d("RoomActivity", "Удален пользователь: ${deletedSession.user_id}")
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("RoomActivity", "Ошибка десериализации Delete: ${action.oldRecord}", e)
+                                }
                             }
                             else -> {
-                                // Игнорируем неподдерживаемые действия
+                                Log.d("RoomActivity", "Неподдерживаемое действие: ${action::class.simpleName}")
                             }
                         }
                     }
@@ -229,28 +254,48 @@ class RoomActivity : AppCompatActivity() {
             }
         }
 
-        // Сохраняем канал для отписки в onDestroy
+        // Сохраняем канал для отписки
         userSessionChannel = channel
-    }
+    }*/
 
 
 
-    @OptIn(SupabaseInternal::class)
-    private fun handleRealtimeMessage(message: RealtimeMessage) {
-        val payload = message.payload as? Map<*, *> ?: return
-        val newData = payload["new"] as? Map<*, *>
-        val oldData = payload["old"] as? Map<*, *>
-
-        val target = newData ?: oldData
-        val eventRoomId = target?.get("room_id")?.toString()
-
-        if (eventRoomId == roomId) {
-            Log.d("RoomActivity", "Изменения в user_sessions, обновляем пользователей")
-            loadUsers()
+    private fun startPeriodicUserCheck() {
+        lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    Log.d("RoomActivity", "Периодическая проверка пользователей")
+                    loadUsers()
+                    delay(2_000) // Проверка каждые 3 секунды
+                }
+            }
         }
     }
 
+/*    private fun testRoomsRealtime() {
+        val channelName = "realtime:public:rooms"
+        val channel = Supabase.client.realtime.channel(channelName)
 
+        lifecycleScope.launch {
+            try {
+                channel.subscribe()
+                Log.d("RoomActivity", "Subscribed to $channelName")
+
+
+                channel.postgresChangeFlow<PostgresAction>(schema = "public").collect { action ->
+                    Log.d("RoomActivity", "Rooms event received: ${action::class.simpleName}")
+                    when (action) {
+                        is PostgresAction.Insert -> Log.d("RoomActivity", "Rooms Insert record: ${action.record}")
+                        is PostgresAction.Update -> Log.d("RoomActivity", "Rooms Update record: ${action.record}")
+                        is PostgresAction.Delete -> Log.d("RoomActivity", "Rooms Delete oldRecord: ${action.oldRecord}")
+                        else -> Log.d("RoomActivity", "Rooms неподдерживаемое действие: ${action::class.simpleName}")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("RoomActivity", "Ошибка rooms realtime-подписки", e)
+            }
+        }
+    }*/
 
     override fun onDestroy() {
         super.onDestroy()
