@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
@@ -14,32 +15,19 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.annotations.SupabaseExperimental
-import io.github.jan.supabase.annotations.SupabaseInternal
-import io.github.jan.supabase.postgrest.from
+
 import io.github.jan.supabase.postgrest.postgrest
 
-import io.github.jan.supabase.postgrest.query.filter.FilterOperator
-import io.github.jan.supabase.postgrest.query.filter.PostgrestFilterBuilder
-import io.github.jan.supabase.realtime.PostgresAction
-import io.github.jan.supabase.realtime.Realtime
-import io.github.jan.supabase.realtime.RealtimeChannel
-import io.github.jan.supabase.realtime.RealtimeMessage
-import io.github.jan.supabase.realtime.channel
-import io.github.jan.supabase.realtime.postgresChangeFlow
 
-import io.github.jan.supabase.realtime.realtime
+import io.github.jan.supabase.realtime.RealtimeChannel
+
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
+
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
-import java.util.Locale.filter
+
 
 class RoomActivity : AppCompatActivity() {
 
@@ -329,18 +317,19 @@ class RoomActivity : AppCompatActivity() {
 
     private fun startCountdown() {
         lifecycleScope.launch {
-            val countdownTextView = findViewById<TextView>(R.id.countdownTextView) // Добавьте TextView в layout
+            val countdownTextView = findViewById<TextView>(R.id.countdownTextView)
+            countdownTextView.visibility = View.VISIBLE // Делаем TextView видимым
             for (i in 5 downTo 0) {
                 countdownTextView.text = if (i > 0) "Переход через $i..." else "Переходим!"
                 Log.d("RoomActivity", "Отсчет: $i")
                 delay(1_000)
             }
-            // Переход на MovieSearchActivity
+            countdownTextView.visibility = View.GONE // Скрываем после отсчета
             val intent = Intent(this@RoomActivity, MovieSearchActivity::class.java).apply {
                 putExtra("room_id", roomId)
             }
             startActivity(intent)
-            finish() // Закрываем RoomActivity
+            finish()
         }
     }
     override fun onDestroy() {
