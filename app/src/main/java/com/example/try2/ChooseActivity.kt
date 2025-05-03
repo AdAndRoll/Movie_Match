@@ -1,6 +1,7 @@
 package com.example.try2
 
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
@@ -12,7 +13,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 
 class ChooseActivity : AppCompatActivity() {
@@ -28,7 +33,7 @@ class ChooseActivity : AppCompatActivity() {
     private lateinit var noButton: Button
     private lateinit var messageTextView: TextView
     private lateinit var roomId: String
-
+    private lateinit var userId: String
     private var movieList: List<Movie> = emptyList()
     private var currentMovieIndex: Int = 0
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
@@ -55,9 +60,11 @@ class ChooseActivity : AppCompatActivity() {
             finish()
             return
         }
+        userId = UserManager.getUserId(this)
 
-        // Загрузка фильмов
+        // Загрузка фильмов и запуск опроса
         loadMovies()
+        startPolling()
     }
 
     private fun loadMovies() {
@@ -79,8 +86,7 @@ class ChooseActivity : AppCompatActivity() {
 
                     // Установка обработчиков кнопок
                     yesButton.setOnClickListener {
-                        messageTextView.text = "Поздравляю, вы выбрали фильм!"
-                        clearMovieDetails()
+                        saveMovieChoice(movieList[currentMovieIndex].id)
                     }
 
                     noButton.setOnClickListener {
@@ -104,6 +110,104 @@ class ChooseActivity : AppCompatActivity() {
         }
     }
 
+    private fun saveMovieChoice(movieId: Long) {
+        coroutineScope.launch {
+            try {
+                // Удаляем предыдущий выбор пользователя
+                withContext(Dispatchers.IO) {
+                    Supabase.client.from("movie_choices")
+                        .delete {
+                            filter {
+                                eq("user_id", userId)
+                                eq("room_id", roomId)
+                            }
+                        }
+                }
+                // Сохраняем новый выбор
+                withContext(Dispatchers.IO) {
+                    Supabase.client.from("movie_choices")
+                        .insert(MovieChoiceInsert(user_id = userId, room_id = roomId, movie_id = movieId))
+                }
+                Log.d("ChooseActivity", "Saved movie choice: user=$userId, movie=$movieId")
+                Toast.makeText(this@ChooseActivity, "Фильм выбран, ожидаем других...", Toast.LENGTH_SHORT).show()
+
+                // Переключаемся на следующий фильм
+                currentMovieIndex = (currentMovieIndex + 1) % movieList.size
+                displayMovie(movieList[currentMovieIndex])
+            } catch (e: Exception) {
+                Log.e("ChooseActivity", "Error saving movie choice: ${e.message}")
+                Toast.makeText(this@ChooseActivity, "Ошибка сохранения выбора: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun startPolling() {
+        coroutineScope.launch {
+            while (isActive) {
+                checkForMatch()
+                delay(2_000) // Опрос каждые 2 секунды
+            }
+        }
+    }
+
+    private fun checkForMatch() {
+        coroutineScope.launch {
+            try {
+                // Получаем всех активных пользователей в комнате
+                val users = withContext(Dispatchers.IO) {
+                    Supabase.client.from("user_sessions")
+                        .select {
+                            filter {
+                                eq("room_id", roomId)
+                                eq("is_online", true)
+                            }
+                        }
+                        .decodeList<UserSession>()
+                }
+                val userCount = users.size
+                Log.d("ChooseActivity", "Active users in room: $userCount")
+
+                // Получаем все выборы для комнаты
+                val choices = withContext(Dispatchers.IO) {
+                    Supabase.client.from("movie_choices")
+                        .select {
+                            filter {
+                                eq("room_id", roomId)
+                            }
+                        }
+                        .decodeList<MovieChoice>()
+                }
+                Log.d("ChooseActivity", "Choices: $choices")
+
+                // Проверяем, все ли пользователи сделали выбор
+                val choiceCount = choices.distinctBy { it.user_id }.size
+                if (choiceCount < userCount) {
+                    Log.d("ChooseActivity", "Not all users have chosen yet ($choiceCount/$userCount)")
+                    return@launch
+                }
+
+                // Проверяем, есть ли совпадение
+                val movieIds = choices.map { it.movie_id }
+                val commonMovieId = movieIds.groupingBy { it }.eachCount().filter { it.value == userCount }.keys.firstOrNull()
+                if (commonMovieId != null) {
+                    Log.d("ChooseActivity", "Match found! Common movie ID: $commonMovieId")
+                    val selectedMovie = movieList.find { it.id == commonMovieId }
+                    if (selectedMovie != null) {
+                        displayFinalMovie(selectedMovie)
+                    } else {
+                        Log.e("ChooseActivity", "Selected movie not found in movieList")
+                        Toast.makeText(this@ChooseActivity, "Ошибка: фильм не найден", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    Log.d("ChooseActivity", "No match yet, continue choosing")
+                }
+            } catch (e: Exception) {
+                Log.e("ChooseActivity", "Error checking match: ${e.message}")
+                Toast.makeText(this@ChooseActivity, "Ошибка проверки совпадения: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     private fun displayMovie(movie: Movie) {
         movieNameTextView.text = movie.name
         movieDescriptionTextView.text = movie.description
@@ -116,6 +220,13 @@ class ChooseActivity : AppCompatActivity() {
         Picasso.get()
             .load(movie.poster.url)
             .into(moviePosterImageView)
+    }
+
+    private fun displayFinalMovie(movie: Movie) {
+        yesButton.isEnabled = false
+        noButton.isEnabled = false
+        messageTextView.text = "Фильм выбран всеми: ${movie.name}!"
+        displayMovie(movie)
     }
 
     private fun clearMovieDetails() {
@@ -133,3 +244,20 @@ class ChooseActivity : AppCompatActivity() {
         coroutineScope.cancel()
     }
 }
+
+@Serializable
+data class MovieChoiceInsert(
+    val user_id: String,
+    val room_id: String,
+    val movie_id: Long
+)
+
+@Serializable
+data class MovieChoice(
+    val id: Long,
+    val user_id: String,
+    val room_id: String,
+    val movie_id: Long,
+    val created_at: String
+)
+
