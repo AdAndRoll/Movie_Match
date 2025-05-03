@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
 
     id("com.google.gms.google-services") // Добавляем Google Services Plugin
+    alias(libs.plugins.kotlin.serialization) // Только через alias
 }
 
 android {
@@ -38,12 +39,19 @@ android {
 }
 
     dependencies {
-        // Используем BoM, чтобы автоматически подтягивались совместимые версии
-        implementation(libs.firebase.bom)
 
-        // Добавляем Firebase Realtime Database
-        implementation(libs.google.firebase.database.ktx)
-        implementation(libs.firebase.database.ktx)
+
+
+        implementation (libs.postgrest.kt)
+        implementation (libs.realtime.kt)
+        implementation (libs.gotrue.kt)
+
+        implementation (libs.kotlinx.serialization.json)
+
+        implementation(libs.kotlin.stdlib)
+
+        implementation (libs.ktor.client.okhttp)
+
         implementation(libs.serialization.converter)
         implementation(libs.converter.gson)
         implementation(libs.retrofit)
@@ -56,6 +64,8 @@ android {
         implementation(libs.androidx.activity)
         implementation(libs.androidx.constraintlayout)
         implementation(libs.androidx.recyclerview)
+        implementation(libs.androidx.room.common.jvm)
+        implementation(libs.androidx.lifecycle.runtime.android)
 
         testImplementation(libs.junit)
         androidTestImplementation(libs.androidx.junit)

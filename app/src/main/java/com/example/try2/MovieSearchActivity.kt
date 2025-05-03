@@ -2,6 +2,8 @@ package com.example.try2
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.Spinner
@@ -9,116 +11,163 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.slider.RangeSlider
-import kotlinx.coroutines.*
-import java.io.UnsupportedEncodingException
-import java.net.URLEncoder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MovieSearchActivity : AppCompatActivity() {
 
-    private lateinit var yearRangeSlider: RangeSlider
-    private lateinit var yearRangeText: TextView
     private lateinit var genreSpinner: Spinner
+    private lateinit var yearRangeSlider: RangeSlider
     private lateinit var searchButton: Button
+    private lateinit var countdownTextView: TextView
+    private lateinit var yearRangeText: TextView
+    private lateinit var roomId: String
+    private lateinit var userId: String
+    private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_movie_search)
 
-        // Инициализация компонентов
-        yearRangeSlider = findViewById(R.id.yearRangeSlider)
-        yearRangeText = findViewById(R.id.yearRangeText)
         genreSpinner = findViewById(R.id.genreSpinner)
+        yearRangeSlider = findViewById(R.id.yearRangeSlider)
         searchButton = findViewById(R.id.searchButton)
-        yearRangeSlider.setValues(1990f, 2024f)
+        countdownTextView = findViewById(R.id.countdownTextView)
+        yearRangeText = findViewById(R.id.yearRangeText)
 
-        // Установка обработчика ползунка
-        yearRangeSlider.addOnChangeListener { _, _, _ ->
-            val range = yearRangeSlider.values
-            val startYear = range[0].toInt()
-            val endYear = range[1].toInt()
-            yearRangeText.text = "Выбранные года: $startYear - $endYear"
+        roomId = intent.getStringExtra("room_id") ?: run {
+            Toast.makeText(this, "Room ID not provided", Toast.LENGTH_SHORT).show()
+            finish()
+            return
         }
+        userId = UserManager.getUserId(this)
 
-        // Настройка выпадающего списка для жанров
-        val genres = listOf("драма", "ужасы", "комедия", "боевик", "фантастика")
-        val adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_dropdown_item,
-            genres
-        )
+        setupGenreSpinner()
+        setupYearRangeSlider()
+        setupSearchButton()
+    }
+
+    private fun setupGenreSpinner() {
+        val genres = listOf("драма", "комедия", "фантастика", "боевик", "ужасы")
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, genres)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         genreSpinner.adapter = adapter
+    }
 
-        // Обработчик кнопки поиска
-        searchButton.setOnClickListener {
-            val selectedYears = yearRangeSlider.values
-            // Преобразуем значения в строковый список (List<String>)
-            val yearRange = listOf("${selectedYears[0].toInt()}-${selectedYears[1].toInt()}")
-            val selectedGenre = genreSpinner.selectedItem as String
-            println("Searching for movies with genres: $selectedGenre, year range: $yearRange")
-            // Вызов API с выбранными параметрами
-            searchMovies(selectedGenre, yearRange)
+    private fun setupYearRangeSlider() {
+        yearRangeSlider.valueFrom = 1990f
+        yearRangeSlider.valueTo = 2024f
+        yearRangeSlider.values = listOf(1990f, 2024f)
+        yearRangeSlider.stepSize = 1f
+        yearRangeSlider.addOnChangeListener { slider, _, _ ->
+            val values = slider.values
+            yearRangeText.text = "Выбранные года: ${values[0].toInt()} - ${values[1].toInt()}"
         }
     }
 
-    fun searchMovies(genre: String, yearRange: List<String>) {
-        val apiClient = MovieApiClient("T31MD52-6ZJ4RVQ-KBK3C0T-0AVR9WS")
-        val genres = listOf(genre)
-
-        // Кодируем жанр для передачи в URL
-        val encodedGenre = try {
-            URLEncoder.encode(genres[0], "UTF-8")
-        } catch (e: UnsupportedEncodingException) {
-            e.printStackTrace()
-            genres[0] // Если кодировка не удалась, используем исходное значение
+    private fun setupSearchButton() {
+        searchButton.setOnClickListener {
+            submitPreferences()
         }
+    }
 
-        // Формируем строку параметра year для URL
-        val yearRangeString = when {
-            yearRange.size == 1 -> yearRange[0] // Один год, например "2015"
-            yearRange.size == 2 -> "${yearRange[0]}-${yearRange[1]}" // Диапазон лет, например "2010-2020"
-            else -> yearRange.joinToString(",") // Несколько лет, например "2010,2012,2015"
-        }
+    private fun submitPreferences() {
+        val selectedYears = yearRangeSlider.values
+        val years = listOf(selectedYears[0].toInt(), selectedYears[1].toInt())
+        val selectedGenre = genreSpinner.selectedItem as String
+        val genres = listOf(selectedGenre)
 
-        // Запуск корутины для выполнения запроса в фоновом потоке
-        CoroutineScope(Dispatchers.IO).launch {
+        val request = PreferencesRequest(
+            user_id = userId,
+            room_id = roomId,
+            genres = genres,
+            years = years
+        )
+        Log.d("MovieSearchActivity", "Sending preferences: $request")
+
+        coroutineScope.launch {
             try {
-                // Вызов API в фоновом потоке
-                val movieSearchResponse = apiClient.searchMovies(genres, yearRange)
-                println("Response: $movieSearchResponse")
-
-                // Формируем запрос URL с передачей параметров
-                val url = "https://api.kinopoisk.dev/v1.4/movie?page=1&limit=5&selectFields=id&selectFields=name&selectFields=year&selectFields=movieLength&selectFields=rating&selectFields=description&selectFields=genres&selectFields=poster&notNullFields=name&notNullFields=description&notNullFields=poster.url&sortField=rating.kp&sortType=-1&type=movie&year=$yearRangeString&genres.name=$encodedGenre"
-                println("Request URL: $url")
-
-                // После выполнения запроса, возвращаемся на главный поток для обновления UI
-                withContext(Dispatchers.Main) {
-                    if (movieSearchResponse != null) {
-                        val movies = movieSearchResponse.docs
-                        if (!movies.isNullOrEmpty()) {
-                            // Выводим название первого фильма в логи
-                            println("First movie: ${movies[0].name}")
-                            Toast.makeText(this@MovieSearchActivity, "First movie: ${movies[0].name}", Toast.LENGTH_SHORT).show()
-                            // Передаем данные в ChooseActivity
-                            val intent = Intent(this@MovieSearchActivity, ChooseActivity::class.java)
-                            // Передаем список фильмов через сериализацию или Parcelable
-                            intent.putParcelableArrayListExtra("MOVIES_LIST", ArrayList(movies))
-                            startActivity(intent)
-                        } else {
-                            println("No movies found")
-                            Toast.makeText(this@MovieSearchActivity, "No movies found", Toast.LENGTH_SHORT).show()
+                val response = ServerClient.api.submitPreferences(request)
+                Log.d("MovieSearchActivity", "Response: ${response.body()}")
+                if (response.isSuccessful) {
+                    val statusResponse = response.body()
+                    when (statusResponse?.status) {
+                        "waiting" -> {
+                            Toast.makeText(this@MovieSearchActivity, "Ожидаем других пользователей...", Toast.LENGTH_SHORT).show()
+                            startStatusPolling()
                         }
-                    } else {
-                        println("Failed to fetch movie data")
-                        Toast.makeText(this@MovieSearchActivity, "Failed to fetch movie data", Toast.LENGTH_SHORT).show()
+                        "ready" -> {
+                            Toast.makeText(this@MovieSearchActivity, "Результаты готовы!", Toast.LENGTH_SHORT).show()
+                            startCountdownAndNavigate()
+                        }
+                        else -> {
+                            Toast.makeText(this@MovieSearchActivity, "Ошибка: ${statusResponse?.error}", Toast.LENGTH_SHORT).show()
+                        }
                     }
+                } else {
+                    Toast.makeText(this@MovieSearchActivity, "Ошибка сервера: ${response.message()}", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    // Обработка ошибок (например, отсутствие интернета)
-                    e.printStackTrace()
-                    Toast.makeText(this@MovieSearchActivity, "Error occurred: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
+                Log.e("MovieSearchActivity", "Network error: ${e.message}")
+                Toast.makeText(this@MovieSearchActivity, "Ошибка сети: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun startStatusPolling() {
+        coroutineScope.launch {
+            while (isActive) {
+                try {
+                    val response = withContext(Dispatchers.IO) {
+                        ServerClient.api.checkStatus(roomId)
+                    }
+                    Log.d("MovieSearchActivity", "Polling status: ${response.body()}")
+                    if (response.isSuccessful && response.body()?.status == "ready") {
+                        Toast.makeText(this@MovieSearchActivity, "Результаты готовы!", Toast.LENGTH_SHORT).show()
+                        startCountdownAndNavigate()
+                        break
+                    }
+                } catch (e: Exception) {
+                    Log.e("MovieSearchActivity", "Polling error: ${e.message}")
+                }
+                delay(2_000)
+            }
+        }
+    }
+
+    private fun startCountdownAndNavigate() {
+        coroutineScope.launch {
+            val startTime = System.currentTimeMillis()
+            countdownTextView.visibility = View.VISIBLE
+            for (i in 5 downTo 0) {
+                Log.d("MovieSearchActivity", "Countdown: $i")
+                countdownTextView.text = "Переход через: $i"
+                delay(1_000)
+                if (!isActive) {
+                    Log.d("MovieSearchActivity", "Countdown interrupted")
+                    countdownTextView.visibility = View.GONE
+                    return@launch
+                }
+            }
+            val elapsedTime = System.currentTimeMillis() - startTime
+            Log.d("MovieSearchActivity", "Countdown completed, elapsed: $elapsedTime ms")
+            countdownTextView.visibility = View.GONE
+            val intent = Intent(this@MovieSearchActivity, ChooseActivity::class.java).apply {
+                putExtra("ROOM_ID", roomId)
+            }
+            startActivity(intent)
+            finish()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        coroutineScope.cancel()
     }
 }

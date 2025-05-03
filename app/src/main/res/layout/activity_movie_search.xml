@@ -40,4 +40,10 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:text="Искать фильмы" />
+    <TextView
+        android:id="@+id/countdownTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:text="Переход через: 5" />
 </LinearLayout>
