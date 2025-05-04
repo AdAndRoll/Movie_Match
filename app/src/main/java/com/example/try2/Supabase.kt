@@ -1,6 +1,7 @@
 package com.example.try2
 
 import android.content.Context
+import android.util.Log
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
@@ -80,6 +81,7 @@ object UserSessionManager {
     fun updateOnlineStatus(context: Context, roomId: String, userId: String, isOnline: Boolean) {
         scope.launch {
             try {
+                Log.d("UserSessionManager", "Updating status: user=$userId, room=$roomId, isOnline=$isOnline")
                 withContext(Dispatchers.IO) {
                     Supabase.client.from("user_sessions")
                         .update(
@@ -91,8 +93,9 @@ object UserSessionManager {
                             }
                         }
                 }
+                Log.d("UserSessionManager", "Status updated successfully")
             } catch (e: Exception) {
-                println("Error updating online status: ${e.message}")
+                Log.e("UserSessionManager", "Error updating online status: ${e.message}", e)
             }
         }
     }
