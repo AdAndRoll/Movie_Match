@@ -81,6 +81,8 @@ class ChooseActivity : AppCompatActivity() {
                 println("Loaded movies: ${response.movies}")
                 movieList = response.movies
                 if (movieList.isNotEmpty()) {
+                    // Предзагрузка постеров
+                    preloadPosters()
                     currentMovieIndex = 0
                     displayMovie(movieList[currentMovieIndex])
 
@@ -106,6 +108,22 @@ class ChooseActivity : AppCompatActivity() {
                 println("General error: ${e.message}")
                 Toast.makeText(this@ChooseActivity, "Ошибка загрузки фильмов: ${e.message}", Toast.LENGTH_LONG).show()
                 finish()
+            }
+        }
+    }
+
+    private fun preloadPosters() {
+        coroutineScope.launch {
+            withContext(Dispatchers.IO) {
+                movieList.forEach { movie ->
+                    try {
+                        Picasso.get()
+                            .load(movie.poster.url)
+                            .fetch() // Предзагрузка в кэш
+                    } catch (e: Exception) {
+                        Log.e("ChooseActivity", "Error preloading poster for ${movie.name}: ${e.message}")
+                    }
+                }
             }
         }
     }
@@ -241,6 +259,7 @@ class ChooseActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        UserSessionManager.updateOnlineStatus(this, roomId, userId, isOnline = false)
         coroutineScope.cancel()
     }
 }

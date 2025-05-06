@@ -1,11 +1,17 @@
 package com.example.try2
 
 import android.content.Context
+import android.util.Log
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.realtime.Realtime
 import io.ktor.client.engine.okhttp.OkHttp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.Serializable
 
@@ -64,6 +70,34 @@ object UserManager {
             .remove(LAST_ROOM_ID_KEY)
             .remove(LAST_ROOM_CODE_KEY)
             .apply()
+    }
+}
+
+
+object UserSessionManager {
+
+    private val scope = CoroutineScope(Dispatchers.IO)
+
+    fun updateOnlineStatus(context: Context, roomId: String, userId: String, isOnline: Boolean) {
+        scope.launch {
+            try {
+                Log.d("UserSessionManager", "Updating status: user=$userId, room=$roomId, isOnline=$isOnline")
+                withContext(Dispatchers.IO) {
+                    Supabase.client.from("user_sessions")
+                        .update(
+                            mapOf("is_online" to isOnline)
+                        ) {
+                            filter {
+                                eq("user_id", userId)
+                                eq("room_id", roomId)
+                            }
+                        }
+                }
+                Log.d("UserSessionManager", "Status updated successfully")
+            } catch (e: Exception) {
+                Log.e("UserSessionManager", "Error updating online status: ${e.message}", e)
+            }
+        }
     }
 }
 
