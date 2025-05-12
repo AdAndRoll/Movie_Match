@@ -1,49 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="vertical"
-    android:padding="16dp"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:fitsSystemWindows="true">
 
+    <LinearLayout
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:paddingBottom="32dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+    <!-- Код комнаты с отступом сверху -->
     <TextView
         android:id="@+id/tvRoomCode"
-        android:textSize="18sp"
-        android:textStyle="bold"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Код комнаты: ------" />
+        android:layout_marginTop="24dp"
+        android:text="Код комнаты: ------"
+        android:textSize="18sp"
+        android:textStyle="bold" />
 
+    <!-- RecyclerView с уменьшенным весом -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvUsers"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="12dp" />
+        android:layout_marginTop="12dp"
+        android:layout_weight="0.7"/>
 
+    <!-- TextView для отсчета -->
     <TextView
         android:id="@+id/countdownTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text=""
-        android:textSize="18sp"
-        android:textColor="@android:color/black"
-        android:visibility="gone"
         android:layout_gravity="center"
-        android:layout_marginTop="16dp" />
+        android:layout_marginTop="16dp"
+        android:text=""
+        android:textColor="@android:color/black"
+        android:textSize="18sp"
+        android:visibility="gone" />
+
+    <!-- Кнопка "Готов" -->
     <Button
         android:id="@+id/btnReady"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
         android:text="Готов" />
 
+    <!-- Кнопка "Выйти" с дополнительным отступом -->
     <Button
         android:id="@+id/btnExit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="50dp"
         android:text="Выйти из комнаты"
         android:textColor="@color/white" />
 
-
 </LinearLayout>
+    </ScrollView>
