@@ -16,7 +16,6 @@
         android:valueFrom="1990"
         android:valueTo="2024"/>
 
-
     <!-- Текстовое поле для отображения выбранного диапазона годов -->
     <TextView
         android:id="@+id/yearRangeText"
@@ -25,13 +24,12 @@
         android:layout_marginTop="8dp"
         android:text="Выбранные года: 1990 - 2024" />
 
-    <!-- Выпадающий список для выбора жанров -->
-    <Spinner
+    <!-- Кастомный спиннер для множественного выбора жанров -->
+    <com.example.try2.MultiSelectionSpinner
         android:id="@+id/genreSpinner"
         android:layout_width="match_parent"
         android:layout_height="50dp"
-        android:layout_marginTop="16dp"
-        android:spinnerMode="dropdown" />
+        android:layout_marginTop="16dp" />
 
     <!-- Кнопка для выполнения запроса -->
     <Button

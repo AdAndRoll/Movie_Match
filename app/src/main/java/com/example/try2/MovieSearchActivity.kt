@@ -4,9 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.widget.ArrayAdapter
 import android.widget.Button
-import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -22,7 +20,7 @@ import kotlinx.coroutines.withContext
 
 class MovieSearchActivity : AppCompatActivity() {
 
-    private lateinit var genreSpinner: Spinner
+    private lateinit var genreSpinner: MultiSelectionSpinner
     private lateinit var yearRangeSlider: RangeSlider
     private lateinit var searchButton: Button
     private lateinit var countdownTextView: TextView
@@ -54,10 +52,14 @@ class MovieSearchActivity : AppCompatActivity() {
     }
 
     private fun setupGenreSpinner() {
-        val genres = listOf("драма", "комедия", "фантастика", "боевик", "ужасы")
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, genres)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        genreSpinner.adapter = adapter
+        val genres = listOf(
+            "аниме", "биография", "боевик", "вестерн", "военный", "детектив", "документальный", "драма", "игра", "история", "комедия",
+            "короткометражка", "криминал", "мелодрама", "мультфильм", "мюзикл",
+            "приключения", "семейный", "триллер",
+            "ужасы", "фантастика", "фильм-нуар", "фэнтези"
+        )
+        genreSpinner.setItems(genres)
+        genreSpinner.setSelection(emptyList()) // Начально ничего не выбрано
     }
 
     private fun setupYearRangeSlider() {
@@ -80,13 +82,17 @@ class MovieSearchActivity : AppCompatActivity() {
     private fun submitPreferences() {
         val selectedYears = yearRangeSlider.values
         val years = listOf(selectedYears[0].toInt(), selectedYears[1].toInt())
-        val selectedGenre = genreSpinner.selectedItem as String
-        val genres = listOf(selectedGenre)
+        val selectedGenres = genreSpinner.getSelectedItems()
+
+        if (selectedGenres.isEmpty()) {
+            Toast.makeText(this, "Выберите хотя бы один жанр", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         val request = PreferencesRequest(
             user_id = userId,
             room_id = roomId,
-            genres = genres,
+            genres = selectedGenres,
             years = years
         )
         Log.d("MovieSearchActivity", "Sending preferences: $request")
