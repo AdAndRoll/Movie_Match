@@ -9,6 +9,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.slider.RangeSlider
+import com.squareup.picasso.Picasso
+import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -17,6 +19,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class MovieSearchActivity : AppCompatActivity() {
 
@@ -151,6 +155,44 @@ class MovieSearchActivity : AppCompatActivity() {
         coroutineScope.launch {
             val startTime = System.currentTimeMillis()
             countdownTextView.visibility = View.VISIBLE
+            var movieList: List<Movie> = emptyList()
+
+            // Загружаем фильмы из Supabase во время отсчета
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    Supabase.client.from("room_results")
+                        .select {
+                            filter {
+                                eq("room_id", roomId)
+                            }
+                        }
+                        .decodeSingle<RoomResults>()
+                }
+                movieList = response.movies
+                Log.d("MovieSearchActivity", "Loaded ${movieList.size} movies during countdown")
+            } catch (e: Exception) {
+                Log.e("MovieSearchActivity", "Error loading movies during countdown: ${e.message}")
+            }
+
+            // Начинаем предзагрузку постеров
+            if (movieList.isNotEmpty()) {
+                withContext(Dispatchers.IO) {
+                    movieList.take(10).forEach { movie ->
+                        try {
+                            Picasso.get()
+                                .load(movie.poster.url)
+                                .resize(360, 540) // Оптимизируем для предзагрузки
+                                .centerCrop()
+                                .fetch()
+                            Log.d("MovieSearchActivity", "Preloaded poster for ${movie.name}")
+                        } catch (e: Exception) {
+                            Log.e("MovieSearchActivity", "Error preloading poster for ${movie.name}: ${e.message}")
+                        }
+                    }
+                }
+            }
+
+            // Отсчет
             for (i in 5 downTo 0) {
                 Log.d("MovieSearchActivity", "Countdown: $i")
                 countdownTextView.text = "Переход через: $i"
@@ -161,11 +203,17 @@ class MovieSearchActivity : AppCompatActivity() {
                     return@launch
                 }
             }
+
             val elapsedTime = System.currentTimeMillis() - startTime
             Log.d("MovieSearchActivity", "Countdown completed, elapsed: $elapsedTime ms")
             countdownTextView.visibility = View.GONE
+
+            // Передаем список фильмов в ChooseActivity
             val intent = Intent(this@MovieSearchActivity, ChooseActivity::class.java).apply {
                 putExtra("ROOM_ID", roomId)
+                if (movieList.isNotEmpty()) {
+                    putExtra("MOVIE_LIST", Json.encodeToString(movieList))
+                }
             }
             startActivity(intent)
             finish()
