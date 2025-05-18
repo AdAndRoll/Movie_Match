@@ -14,7 +14,8 @@
         android:contentDescription="@string/StartText"
         android:stepSize="1"
         android:valueFrom="1990"
-        android:valueTo="2024"/>
+        android:valueTo="2024"
+        app:labelBehavior="withinBounds" />
 
     <!-- Текстовое поле для отображения выбранного диапазона годов -->
     <TextView
@@ -22,7 +23,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Выбранные года: 1990 - 2024" />
+        android:text="Выбранные года: 1990 - 2024"
+        android:textSize="16sp" />
 
     <!-- Кастомный спиннер для множественного выбора жанров -->
     <com.example.try2.MultiSelectionSpinner
@@ -37,11 +39,20 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="Искать фильмы" />
+        android:text="Искать фильмы"
+        android:enabled="true"
+        android:backgroundTint="@android:color/holo_blue_light"
+        android:backgroundTintMode="src_over"
+        android:textColor="@android:color/white"
+        android:textStyle="bold" />
+
+    <!-- Текстовое поле для отсчёта -->
     <TextView
         android:id="@+id/countdownTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:visibility="gone"
-        android:text="Переход через: 5" />
+        android:text="Переход через: 5"
+        android:textSize="16sp"
+        android:layout_marginTop="8dp" />
 </LinearLayout>

@@ -32,6 +32,9 @@ class MovieSearchActivity : AppCompatActivity() {
     private lateinit var roomId: String
     private lateinit var userId: String
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
+    private var isSearchSubmitted = false // Флаг для отслеживания отправки запроса
+    private var lastSelectedGenres: List<String> = emptyList() // Последние выбранные жанры
+    private var lastSelectedYears: List<Float> = listOf(1990f, 2024f) // Последние выбранные года
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,7 +66,18 @@ class MovieSearchActivity : AppCompatActivity() {
             "ужасы", "фантастика", "фильм-нуар", "фэнтези"
         )
         genreSpinner.setItems(genres)
-        genreSpinner.setSelection(emptyList()) // Начально ничего не выбрано
+        genreSpinner.setSelection(emptyList())
+        // Отслеживаем изменения жанров
+        genreSpinner.setOnSelectionChangedListener { selectedGenres ->
+            if (isSearchSubmitted) {
+                // Проверяем, изменились ли жанры
+                if (selectedGenres != lastSelectedGenres) {
+                    enableSearchButton()
+                    Log.d("MovieSearchActivity", "Genres changed, re-enabling search button: $selectedGenres")
+                }
+            }
+            lastSelectedGenres = selectedGenres
+        }
     }
 
     private fun setupYearRangeSlider() {
@@ -74,13 +88,37 @@ class MovieSearchActivity : AppCompatActivity() {
         yearRangeSlider.addOnChangeListener { slider, _, _ ->
             val values = slider.values
             yearRangeText.text = "Выбранные года: ${values[0].toInt()} - ${values[1].toInt()}"
+            if (isSearchSubmitted) {
+                // Проверяем, изменились ли года
+                if (values != lastSelectedYears) {
+                    enableSearchButton()
+                    Log.d("MovieSearchActivity", "Years changed, re-enabling search button: $values")
+                }
+            }
+            lastSelectedYears = values
         }
     }
 
     private fun setupSearchButton() {
         searchButton.setOnClickListener {
-            submitPreferences()
+            if (!isSearchSubmitted) {
+                submitPreferences()
+            }
         }
+    }
+
+    private fun disableSearchButton() {
+        searchButton.isEnabled = false
+        searchButton.text = "Ожидание..."
+        isSearchSubmitted = true
+        Log.d("MovieSearchActivity", "Search button disabled")
+    }
+
+    private fun enableSearchButton() {
+        searchButton.isEnabled = true
+        searchButton.text = "Искать фильмы"
+        isSearchSubmitted = false
+        Log.d("MovieSearchActivity", "Search button re-enabled")
     }
 
     private fun submitPreferences() {
@@ -92,6 +130,9 @@ class MovieSearchActivity : AppCompatActivity() {
             Toast.makeText(this, "Выберите хотя бы один жанр", Toast.LENGTH_SHORT).show()
             return
         }
+
+        // Отключаем кнопку
+        disableSearchButton()
 
         val request = PreferencesRequest(
             user_id = userId,
@@ -118,14 +159,17 @@ class MovieSearchActivity : AppCompatActivity() {
                         }
                         else -> {
                             Toast.makeText(this@MovieSearchActivity, "Ошибка: ${statusResponse?.error}", Toast.LENGTH_SHORT).show()
+                            enableSearchButton() // В случае ошибки включаем кнопку
                         }
                     }
                 } else {
                     Toast.makeText(this@MovieSearchActivity, "Ошибка сервера: ${response.message()}", Toast.LENGTH_SHORT).show()
+                    enableSearchButton() // В случае ошибки включаем кнопку
                 }
             } catch (e: Exception) {
                 Log.e("MovieSearchActivity", "Network error: ${e.message}")
                 Toast.makeText(this@MovieSearchActivity, "Ошибка сети: ${e.message}", Toast.LENGTH_SHORT).show()
+                enableSearchButton() // В случае ошибки включаем кнопку
             }
         }
     }
@@ -145,6 +189,8 @@ class MovieSearchActivity : AppCompatActivity() {
                     }
                 } catch (e: Exception) {
                     Log.e("MovieSearchActivity", "Polling error: ${e.message}")
+                    Toast.makeText(this@MovieSearchActivity, "Ошибка опроса: ${e.message}", Toast.LENGTH_SHORT).show()
+                    enableSearchButton() // В случае ошибки включаем кнопку
                 }
                 delay(2_000)
             }
@@ -172,6 +218,8 @@ class MovieSearchActivity : AppCompatActivity() {
                 Log.d("MovieSearchActivity", "Loaded ${movieList.size} movies during countdown")
             } catch (e: Exception) {
                 Log.e("MovieSearchActivity", "Error loading movies during countdown: ${e.message}")
+                Toast.makeText(this@MovieSearchActivity, "Ошибка загрузки фильмов: ${e.message}", Toast.LENGTH_SHORT).show()
+                enableSearchButton() // В случае ошибки включаем кнопку
             }
 
             // Начинаем предзагрузку постеров
@@ -181,8 +229,6 @@ class MovieSearchActivity : AppCompatActivity() {
                         try {
                             Picasso.get()
                                 .load(movie.poster.url)
-                                .resize(360, 540) // Оптимизируем для предзагрузки
-                                .centerCrop()
                                 .fetch()
                             Log.d("MovieSearchActivity", "Preloaded poster for ${movie.name}")
                         } catch (e: Exception) {
@@ -200,6 +246,7 @@ class MovieSearchActivity : AppCompatActivity() {
                 if (!isActive) {
                     Log.d("MovieSearchActivity", "Countdown interrupted")
                     countdownTextView.visibility = View.GONE
+                    enableSearchButton() // Если прервано, включаем кнопку
                     return@launch
                 }
             }
