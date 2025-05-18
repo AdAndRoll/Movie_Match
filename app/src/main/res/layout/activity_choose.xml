@@ -67,10 +67,11 @@
             <!-- Единственный ImageView для постеров -->
             <ImageView
                 android:id="@+id/moviePosterImageView1"
-                android:layout_width="360dp"
-                android:layout_height="540dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxWidth="400dp"
                 android:adjustViewBounds="true"
-                android:scaleType="centerCrop"
+                android:scaleType="fitCenter"
                 android:visibility="visible" />
 
         </FrameLayout>

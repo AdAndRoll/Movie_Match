@@ -32,7 +32,7 @@ class ChooseActivity : AppCompatActivity() {
     private lateinit var movieYearTextView: TextView
     private lateinit var movieLengthTextView: TextView
     private lateinit var movieRatingTextView: TextView
-    private lateinit var moviePosterImageView: ImageView // Только один ImageView
+    private lateinit var moviePosterImageView: ImageView
     private lateinit var yesButton: Button
     private lateinit var noButton: Button
     private lateinit var messageTextView: TextView
@@ -153,12 +153,10 @@ class ChooseActivity : AppCompatActivity() {
                         try {
                             val bitmap = Picasso.get()
                                 .load(movie.poster.url)
-                                .resize(360, 540)
-                                .centerCrop()
                                 .memoryPolicy(MemoryPolicy.NO_CACHE)
                                 .get()
                             posterCache[movie.id] = bitmap
-                            Log.d("ChooseActivity", "Preloaded poster for ${movie.name} (id: ${movie.id}) into cache")
+                            Log.d("ChooseActivity", "Preloaded poster for ${movie.name} (id: ${movie.id}) into cache, size: ${bitmap.width}x${bitmap.height}")
                         } catch (e: Exception) {
                             Log.e("ChooseActivity", "Error preloading poster for ${movie.name} (id: ${movie.id}): ${e.message}")
                         }
@@ -170,8 +168,6 @@ class ChooseActivity : AppCompatActivity() {
                         try {
                             Picasso.get()
                                 .load(movie.poster.url)
-                                .resize(360, 540)
-                                .centerCrop()
                                 .memoryPolicy(MemoryPolicy.NO_CACHE)
                                 .fetch()
                             Log.d("ChooseActivity", "Preloaded poster for ${movie.name} (id: ${movie.id}) into Picasso cache")
@@ -299,20 +295,18 @@ class ChooseActivity : AppCompatActivity() {
             moviePosterImageView.setImageBitmap(bitmap)
             moviePosterImageView.alpha = 1f
             val elapsed = System.currentTimeMillis() - startTime
-            Log.d("ChooseActivity", "Loaded poster for ${movie.name} (id: ${movie.id}) from cache in $elapsed ms")
+            Log.d("ChooseActivity", "Loaded poster for ${movie.name} (id: ${movie.id}) from cache in $elapsed ms, size: ${bitmap.width}x${bitmap.height}")
         } else {
             Log.w("ChooseActivity", "Poster for ${movie.name} (id: ${movie.id}) not in cache, loading synchronously")
             try {
                 val bitmap = Picasso.get()
                     .load(movie.poster.url)
-                    .resize(360, 540)
-                    .centerCrop()
                     .memoryPolicy(MemoryPolicy.NO_CACHE)
                     .get()
                 moviePosterImageView.setImageBitmap(bitmap)
                 moviePosterImageView.alpha = 1f
                 val elapsed = System.currentTimeMillis() - startTime
-                Log.d("ChooseActivity", "Loaded poster for ${movie.name} (id: ${movie.id}) synchronously in $elapsed ms")
+                Log.d("ChooseActivity", "Loaded poster for ${movie.name} (id: ${movie.id}) synchronously in $elapsed ms, size: ${bitmap.width}x${bitmap.height}")
             } catch (e: Exception) {
                 Log.e("ChooseActivity", "Error loading poster for ${movie.name} (id: ${movie.id}): ${e.message}")
                 moviePosterImageView.alpha = 1f
@@ -329,12 +323,10 @@ class ChooseActivity : AppCompatActivity() {
                     try {
                         val bitmap = Picasso.get()
                             .load(nextMovie.poster.url)
-                            .resize(360, 540)
-                            .centerCrop()
                             .memoryPolicy(MemoryPolicy.NO_CACHE)
                             .get()
                         posterCache[nextMovie.id] = bitmap
-                        Log.d("ChooseActivity", "Preloaded next poster for ${nextMovie.name} (id: ${nextMovie.id}) into cache")
+                        Log.d("ChooseActivity", "Preloaded next poster for ${nextMovie.name} (id: ${nextMovie.id}) into cache, size: ${bitmap.width}x${bitmap.height}")
                     } catch (e: Exception) {
                         Log.e("ChooseActivity", "Error preloading next poster for ${nextMovie.name} (id: ${nextMovie.id}): ${e.message}")
                     }
@@ -355,20 +347,18 @@ class ChooseActivity : AppCompatActivity() {
             moviePosterImageView.setImageBitmap(bitmap)
             moviePosterImageView.alpha = 1f
             val elapsed = System.currentTimeMillis() - startTime
-            Log.d("ChooseActivity", "Loaded final poster for ${movie.name} (id: ${movie.id}) from cache in $elapsed ms")
+            Log.d("ChooseActivity", "Loaded final poster for ${movie.name} (id: ${movie.id}) from cache in $elapsed ms, size: ${bitmap.width}x${bitmap.height}")
         } else {
             Log.w("ChooseActivity", "Final poster for ${movie.name} (id: ${movie.id}) not in cache, loading synchronously")
             try {
                 val bitmap = Picasso.get()
                     .load(movie.poster.url)
-                    .resize(360, 540)
-                    .centerCrop()
                     .memoryPolicy(MemoryPolicy.NO_CACHE)
                     .get()
                 moviePosterImageView.setImageBitmap(bitmap)
                 moviePosterImageView.alpha = 1f
                 val elapsed = System.currentTimeMillis() - startTime
-                Log.d("ChooseActivity", "Loaded final poster for ${movie.name} (id: ${movie.id}) synchronously in $elapsed ms")
+                Log.d("ChooseActivity", "Loaded final poster for ${movie.name} (id: ${movie.id}) synchronously in $elapsed ms, size: ${bitmap.width}x${bitmap.height}")
             } catch (e: Exception) {
                 Log.e("ChooseActivity", "Error loading final poster for ${movie.name} (id: ${movie.id}): ${e.message}")
                 moviePosterImageView.alpha = 1f
