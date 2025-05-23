@@ -8,7 +8,6 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.squareup.picasso.MemoryPolicy
 import com.squareup.picasso.Picasso
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +22,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kotlin.math.min
 
 class ChooseActivity : AppCompatActivity() {
 
@@ -116,24 +116,44 @@ class ChooseActivity : AppCompatActivity() {
 
     private fun setupMovieDisplay() {
         if (movieList.isNotEmpty()) {
-            // Предзагрузка постеров
-            preloadPosters(currentMovieIndex)
+            Log.d("ChooseActivity", "Movie list size: ${movieList.size}")
             coroutineScope.launch {
-                delay(1000) // Дать время на предзагрузку
                 currentMovieIndex = 0
-                displayMovie(movieList[currentMovieIndex])
-                // Установка обработчиков кнопок после первого отображения
+                val firstMovie = movieList[currentMovieIndex]
+                val startTime = System.currentTimeMillis()
+
+                // Предзагружаем первый постер в фоновом потоке
+                if (!posterCache.containsKey(firstMovie.id)) {
+                    try {
+                        val bitmap = withContext(Dispatchers.IO) {
+                            Picasso.get().load(firstMovie.poster.url).get()
+                        }
+                        posterCache[firstMovie.id] = bitmap
+                        Log.d("ChooseActivity", "Preloaded first poster for ${firstMovie.name} (id: ${firstMovie.id}, url: ${firstMovie.poster.url}) into cache, size: ${bitmap.width}x${bitmap.height}")
+                    } catch (e: Exception) {
+                        Log.w("ChooseActivity", "Error preloading first poster for ${firstMovie.name} (id: ${firstMovie.id}, url: ${firstMovie.poster.url}): ${e.message}")
+                    }
+                }
+
+                // Отображаем первый фильм
+                displayMovie(firstMovie)
+                val elapsed = System.currentTimeMillis() - startTime
+                Log.d("ChooseActivity", "First movie display time for ${firstMovie.name} (id: ${firstMovie.id}): $elapsed ms")
+
+                // Установка обработчиков кнопок
                 yesButton.setOnClickListener {
                     saveMovieChoice(movieList[currentMovieIndex].id)
                 }
                 noButton.setOnClickListener {
-                    // Очищаем кэш текущего фильма
                     posterCache.remove(movieList[currentMovieIndex].id)
                     Log.d("ChooseActivity", "Cleared poster cache for ${movieList[currentMovieIndex].name}")
                     currentMovieIndex = (currentMovieIndex + 1) % movieList.size
                     preloadPosters(currentMovieIndex)
                     displayMovie(movieList[currentMovieIndex])
                 }
+
+                // Предзагружаем остальные постеры
+                preloadPosters(currentMovieIndex)
             }
         } else {
             Log.e("ChooseActivity", "No movies found for room_id: $roomId")
@@ -146,19 +166,16 @@ class ChooseActivity : AppCompatActivity() {
         coroutineScope.launch {
             withContext(Dispatchers.IO) {
                 // Предзагружаем текущий и следующие 14 фильмов (всего 15)
-                val endIndex = minOf(startIndex + 15, movieList.size)
+                val endIndex = min(startIndex + 15, movieList.size)
                 for (i in startIndex until endIndex) {
                     val movie = movieList[i]
                     if (!posterCache.containsKey(movie.id)) {
                         try {
-                            val bitmap = Picasso.get()
-                                .load(movie.poster.url)
-                                .memoryPolicy(MemoryPolicy.NO_CACHE)
-                                .get()
+                            val bitmap = Picasso.get().load(movie.poster.url).get()
                             posterCache[movie.id] = bitmap
-                            Log.d("ChooseActivity", "Preloaded poster for ${movie.name} (id: ${movie.id}) into cache, size: ${bitmap.width}x${bitmap.height}")
+                            Log.d("ChooseActivity", "Preloaded poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}) into cache, size: ${bitmap.width}x${bitmap.height}")
                         } catch (e: Exception) {
-                            Log.e("ChooseActivity", "Error preloading poster for ${movie.name} (id: ${movie.id}): ${e.message}")
+                            Log.e("ChooseActivity", "Error preloading poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}): ${e.message}")
                         }
                     }
                 }
@@ -166,13 +183,10 @@ class ChooseActivity : AppCompatActivity() {
                 movieList.forEachIndexed { index, movie ->
                     if (index >= endIndex && !posterCache.containsKey(movie.id)) {
                         try {
-                            Picasso.get()
-                                .load(movie.poster.url)
-                                .memoryPolicy(MemoryPolicy.NO_CACHE)
-                                .fetch()
-                            Log.d("ChooseActivity", "Preloaded poster for ${movie.name} (id: ${movie.id}) into Picasso cache")
+                            Picasso.get().load(movie.poster.url).fetch()
+                            Log.d("ChooseActivity", "Preloaded poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}) into Picasso cache")
                         } catch (e: Exception) {
-                            Log.e("ChooseActivity", "Error preloading poster for ${movie.name} (id: ${movie.id}): ${e.message}")
+                            Log.e("ChooseActivity", "Error preloading poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}): ${e.message}")
                         }
                     }
                 }
@@ -295,45 +309,52 @@ class ChooseActivity : AppCompatActivity() {
             moviePosterImageView.setImageBitmap(bitmap)
             moviePosterImageView.alpha = 1f
             val elapsed = System.currentTimeMillis() - startTime
-            Log.d("ChooseActivity", "Loaded poster for ${movie.name} (id: ${movie.id}) from cache in $elapsed ms, size: ${bitmap.width}x${bitmap.height}")
+            Log.d("ChooseActivity", "Loaded poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}) from cache in $elapsed ms, size: ${bitmap.width}x${bitmap.height}")
         } else {
-            Log.w("ChooseActivity", "Poster for ${movie.name} (id: ${movie.id}) not in cache, loading synchronously")
-            try {
-                val bitmap = Picasso.get()
-                    .load(movie.poster.url)
-                    .memoryPolicy(MemoryPolicy.NO_CACHE)
-                    .get()
-                moviePosterImageView.setImageBitmap(bitmap)
-                moviePosterImageView.alpha = 1f
-                val elapsed = System.currentTimeMillis() - startTime
-                Log.d("ChooseActivity", "Loaded poster for ${movie.name} (id: ${movie.id}) synchronously in $elapsed ms, size: ${bitmap.width}x${bitmap.height}")
-            } catch (e: Exception) {
-                Log.e("ChooseActivity", "Error loading poster for ${movie.name} (id: ${movie.id}): ${e.message}")
-                moviePosterImageView.alpha = 1f
-                Toast.makeText(this@ChooseActivity, "Ошибка загрузки постера: ${movie.name}", Toast.LENGTH_SHORT).show()
-            }
+            Log.w("ChooseActivity", "Poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}) not in cache, loading asynchronously")
+            Picasso.get()
+                .load(movie.poster.url)
+                .into(moviePosterImageView, object : com.squareup.picasso.Callback {
+                    override fun onSuccess() {
+                        moviePosterImageView.alpha = 1f
+                        val elapsed = System.currentTimeMillis() - startTime
+                        Log.d("ChooseActivity", "Loaded poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}) asynchronously in $elapsed ms")
+                        // Сохраняем в кэш
+                        moviePosterImageView.isDrawingCacheEnabled = true
+                        val bitmap = moviePosterImageView.drawingCache
+                        if (bitmap != null) {
+                            posterCache[movie.id] = Bitmap.createBitmap(bitmap)
+                            Log.d("ChooseActivity", "Saved poster for ${movie.name} (id: ${movie.id}) to cache, size: ${bitmap.width}x${bitmap.height}")
+                        }
+                        moviePosterImageView.isDrawingCacheEnabled = false
+                    }
+
+                    override fun onError(e: Exception?) {
+                        moviePosterImageView.alpha = 1f
+                        val elapsed = System.currentTimeMillis() - startTime
+                        Log.e("ChooseActivity", "Error loading poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}): ${e?.message}")
+                        Toast.makeText(this@ChooseActivity, "Ошибка загрузки постера: ${movie.name}", Toast.LENGTH_SHORT).show()
+                    }
+                })
         }
 
-        // Немедленно начинаем предзагрузку следующего постера
+        // Предзагружаем следующий постер
         val nextIndex = (currentMovieIndex + 1) % movieList.size
         val nextMovie = movieList[nextIndex]
         if (!posterCache.containsKey(nextMovie.id)) {
             coroutineScope.launch {
                 withContext(Dispatchers.IO) {
                     try {
-                        val bitmap = Picasso.get()
-                            .load(nextMovie.poster.url)
-                            .memoryPolicy(MemoryPolicy.NO_CACHE)
-                            .get()
+                        val bitmap = Picasso.get().load(nextMovie.poster.url).get()
                         posterCache[nextMovie.id] = bitmap
-                        Log.d("ChooseActivity", "Preloaded next poster for ${nextMovie.name} (id: ${nextMovie.id}) into cache, size: ${bitmap.width}x${bitmap.height}")
+                        Log.d("ChooseActivity", "Preloaded next poster for ${nextMovie.name} (id: ${nextMovie.id}, url: ${nextMovie.poster.url}) into cache, size: ${bitmap.width}x${bitmap.height}")
                     } catch (e: Exception) {
-                        Log.e("ChooseActivity", "Error preloading next poster for ${nextMovie.name} (id: ${nextMovie.id}): ${e.message}")
+                        Log.e("ChooseActivity", "Error preloading next poster for ${nextMovie.name} (id: ${nextMovie.id}, url: ${nextMovie.poster.url}): ${e.message}")
                     }
                 }
             }
         } else {
-            Log.d("ChooseActivity", "Next poster for ${nextMovie.name} (id: ${nextMovie.id}) already in cache")
+            Log.d("ChooseActivity", "Next poster for ${nextMovie.name} (id: ${nextMovie.id}, url: ${nextMovie.poster.url}) already in cache")
         }
     }
 
@@ -347,23 +368,33 @@ class ChooseActivity : AppCompatActivity() {
             moviePosterImageView.setImageBitmap(bitmap)
             moviePosterImageView.alpha = 1f
             val elapsed = System.currentTimeMillis() - startTime
-            Log.d("ChooseActivity", "Loaded final poster for ${movie.name} (id: ${movie.id}) from cache in $elapsed ms, size: ${bitmap.width}x${bitmap.height}")
-        } else {
-            Log.w("ChooseActivity", "Final poster for ${movie.name} (id: ${movie.id}) not in cache, loading synchronously")
-            try {
-                val bitmap = Picasso.get()
-                    .load(movie.poster.url)
-                    .memoryPolicy(MemoryPolicy.NO_CACHE)
-                    .get()
-                moviePosterImageView.setImageBitmap(bitmap)
-                moviePosterImageView.alpha = 1f
-                val elapsed = System.currentTimeMillis() - startTime
-                Log.d("ChooseActivity", "Loaded final poster for ${movie.name} (id: ${movie.id}) synchronously in $elapsed ms, size: ${bitmap.width}x${bitmap.height}")
-            } catch (e: Exception) {
-                Log.e("ChooseActivity", "Error loading final poster for ${movie.name} (id: ${movie.id}): ${e.message}")
-                moviePosterImageView.alpha = 1f
-                Toast.makeText(this@ChooseActivity, "Ошибка загрузки постера: ${movie.name}", Toast.LENGTH_SHORT).show()
-            }
+            Log.d("ChooseActivity", "Loaded final poster for ${movie.name} (id: ${movie.id}']=='')}>x${bitmap.height}")
+            } else {
+                    Log.w("ChooseActivity", "Final poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}) not in cache, loading asynchronously")
+            Picasso.get()
+                .load(movie.poster.url)
+                .into(moviePosterImageView, object : com.squareup.picasso.Callback {
+                    override fun onSuccess() {
+                        moviePosterImageView.alpha = 1f
+                        val elapsed = System.currentTimeMillis() - startTime
+                        Log.d("ChooseActivity", "Loaded final poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}) asynchronously in $elapsed ms")
+                        // Сохраняем в кэш
+                        moviePosterImageView.isDrawingCacheEnabled = true
+                        val bitmap = moviePosterImageView.drawingCache
+                        if (bitmap != null) {
+                            posterCache[movie.id] = Bitmap.createBitmap(bitmap)
+                            Log.d("ChooseActivity", "Saved final poster for ${movie.name} (id: ${movie.id}) to cache, size: ${bitmap.width}x${bitmap.height}")
+                        }
+                        moviePosterImageView.isDrawingCacheEnabled = false
+                    }
+
+                    override fun onError(e: Exception?) {
+                        moviePosterImageView.alpha = 1f
+                        val elapsed = System.currentTimeMillis() - startTime
+                        Log.e("ChooseActivity", "Error loading final poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}): ${e?.message}")
+                        Toast.makeText(this@ChooseActivity, "Ошибка загрузки постера: ${movie.name}", Toast.LENGTH_SHORT).show()
+                    }
+                })
         }
     }
 

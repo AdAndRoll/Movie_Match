@@ -32,9 +32,9 @@ class MovieSearchActivity : AppCompatActivity() {
     private lateinit var roomId: String
     private lateinit var userId: String
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
-    private var isSearchSubmitted = false // Флаг для отслеживания отправки запроса
-    private var lastSelectedGenres: List<String> = emptyList() // Последние выбранные жанры
-    private var lastSelectedYears: List<Float> = listOf(1990f, 2024f) // Последние выбранные года
+    private var isSearchSubmitted = false
+    private var lastSelectedGenres: List<String> = emptyList()
+    private var lastSelectedYears: List<Float> = listOf(1990f, 2024f)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,10 +67,8 @@ class MovieSearchActivity : AppCompatActivity() {
         )
         genreSpinner.setItems(genres)
         genreSpinner.setSelection(emptyList())
-        // Отслеживаем изменения жанров
         genreSpinner.setOnSelectionChangedListener { selectedGenres ->
             if (isSearchSubmitted) {
-                // Проверяем, изменились ли жанры
                 if (selectedGenres != lastSelectedGenres) {
                     enableSearchButton()
                     Log.d("MovieSearchActivity", "Genres changed, re-enabling search button: $selectedGenres")
@@ -89,7 +87,6 @@ class MovieSearchActivity : AppCompatActivity() {
             val values = slider.values
             yearRangeText.text = "Выбранные года: ${values[0].toInt()} - ${values[1].toInt()}"
             if (isSearchSubmitted) {
-                // Проверяем, изменились ли года
                 if (values != lastSelectedYears) {
                     enableSearchButton()
                     Log.d("MovieSearchActivity", "Years changed, re-enabling search button: $values")
@@ -131,7 +128,6 @@ class MovieSearchActivity : AppCompatActivity() {
             return
         }
 
-        // Отключаем кнопку
         disableSearchButton()
 
         val request = PreferencesRequest(
@@ -159,17 +155,17 @@ class MovieSearchActivity : AppCompatActivity() {
                         }
                         else -> {
                             Toast.makeText(this@MovieSearchActivity, "Ошибка: ${statusResponse?.error}", Toast.LENGTH_SHORT).show()
-                            enableSearchButton() // В случае ошибки включаем кнопку
+                            enableSearchButton()
                         }
                     }
                 } else {
                     Toast.makeText(this@MovieSearchActivity, "Ошибка сервера: ${response.message()}", Toast.LENGTH_SHORT).show()
-                    enableSearchButton() // В случае ошибки включаем кнопку
+                    enableSearchButton()
                 }
             } catch (e: Exception) {
                 Log.e("MovieSearchActivity", "Network error: ${e.message}")
                 Toast.makeText(this@MovieSearchActivity, "Ошибка сети: ${e.message}", Toast.LENGTH_SHORT).show()
-                enableSearchButton() // В случае ошибки включаем кнопку
+                enableSearchButton()
             }
         }
     }
@@ -190,7 +186,7 @@ class MovieSearchActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     Log.e("MovieSearchActivity", "Polling error: ${e.message}")
                     Toast.makeText(this@MovieSearchActivity, "Ошибка опроса: ${e.message}", Toast.LENGTH_SHORT).show()
-                    enableSearchButton() // В случае ошибки включаем кнопку
+                    enableSearchButton()
                 }
                 delay(2_000)
             }
@@ -219,20 +215,27 @@ class MovieSearchActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e("MovieSearchActivity", "Error loading movies during countdown: ${e.message}")
                 Toast.makeText(this@MovieSearchActivity, "Ошибка загрузки фильмов: ${e.message}", Toast.LENGTH_SHORT).show()
-                enableSearchButton() // В случае ошибки включаем кнопку
+                enableSearchButton()
             }
 
             // Начинаем предзагрузку постеров
             if (movieList.isNotEmpty()) {
                 withContext(Dispatchers.IO) {
-                    movieList.take(10).forEach { movie ->
+                    movieList.take(5).forEach { movie ->
                         try {
-                            Picasso.get()
-                                .load(movie.poster.url)
-                                .fetch()
-                            Log.d("MovieSearchActivity", "Preloaded poster for ${movie.name}")
+                            val bitmap = Picasso.get().load(movie.poster.url).get()
+                            Log.d("MovieSearchActivity", "Preloaded poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}), size: ${bitmap.width}x${bitmap.height}")
                         } catch (e: Exception) {
-                            Log.e("MovieSearchActivity", "Error preloading poster for ${movie.name}: ${e.message}")
+                            Log.e("MovieSearchActivity", "Error preloading poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}): ${e.message}")
+                        }
+                    }
+                    // Предзагружаем остальные асинхронно
+                    movieList.drop(5).take(10).forEach { movie ->
+                        try {
+                            Picasso.get().load(movie.poster.url).fetch()
+                            Log.d("MovieSearchActivity", "Preloaded poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}) into Picasso cache")
+                        } catch (e: Exception) {
+                            Log.e("MovieSearchActivity", "Error preloading poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}): ${e.message}")
                         }
                     }
                 }
@@ -246,7 +249,7 @@ class MovieSearchActivity : AppCompatActivity() {
                 if (!isActive) {
                     Log.d("MovieSearchActivity", "Countdown interrupted")
                     countdownTextView.visibility = View.GONE
-                    enableSearchButton() // Если прервано, включаем кнопку
+                    enableSearchButton()
                     return@launch
                 }
             }
