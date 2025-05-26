@@ -10,6 +10,11 @@
         android:orientation="vertical"
         android:padding="16dp">
 
+        <!-- Пустой отступ перед названием фильма -->
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="48dp" />
+
         <!-- Movie Name -->
         <TextView
             android:id="@+id/movieNameTextView"
