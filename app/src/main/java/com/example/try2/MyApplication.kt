@@ -4,11 +4,9 @@ import android.app.Activity
 import android.app.Application
 import android.os.Bundle
 import android.util.Log
-import io.github.jan.supabase.postgrest.from
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import androidx.work.Data
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 
 class MyApplication : Application() {
 
@@ -75,16 +73,8 @@ class MyApplication : Application() {
                     activeRoomActivityCount = maxOf(0, activeRoomActivityCount - 1)
                     Log.d("MyApplication", "Activity stopped: ${activity.javaClass.simpleName}, count: $activeRoomActivityCount")
                     if (activeRoomActivityCount == 0 && !isSessionClosed && !isMainActivityActive) {
-                        Log.d("MyApplication", "All room activities stopped and no MainActivity active, scheduling session close")
-                        runBlocking {
-                            delay(100) // Даём 100 мс для запуска новой активности
-                            if (activeRoomActivityCount == 0 && !isSessionClosed && !isMainActivityActive) {
-                                Log.d("MyApplication", "Confirmed: closing session")
-                                closeRoomSession()
-                            } else {
-                                Log.d("MyApplication", "Session close cancelled: count=$activeRoomActivityCount, isMainActivityActive=$isMainActivityActive")
-                            }
-                        }
+                        Log.d("MyApplication", "All room activities stopped and no MainActivity active, closing session immediately")
+                        closeRoomSession()
                     }
                 }
             }
@@ -105,26 +95,18 @@ class MyApplication : Application() {
             }
             lastRoomId?.let { roomId ->
                 lastUserId?.let { userId ->
-                    Log.d("MyApplication", "Setting offline for user=$userId, room=$roomId")
-                    runBlocking {
-                        try {
-                            withContext(Dispatchers.IO) {
-                                Thread.sleep(300)
-                                Supabase.client.from("user_sessions")
-                                    .update(
-                                        mapOf("is_online" to false)
-                                    ) {
-                                        filter {
-                                            eq("user_id", userId)
-                                            eq("room_id", roomId)
-                                        }
-                                    }
-                            }
-                            Log.d("MyApplication", "Successfully set offline status for user=$userId, room=$roomId")
-                        } catch (e: Exception) {
-                            Log.e("MyApplication", "Failed to set offline status: ${e.message}", e)
-                        }
-                    }
+                    Log.d("MyApplication", "Scheduling offline status update for user=$userId, room=$roomId")
+                    // Создаём задачу для WorkManager
+                    val data = Data.Builder()
+                        .putString("room_id", roomId)
+                        .putString("user_id", userId)
+                        .build()
+
+                    val workRequest = OneTimeWorkRequestBuilder<UpdateStatusWorker>()
+                        .setInputData(data)
+                        .build()
+
+                    WorkManager.getInstance(this).enqueue(workRequest)
                 } ?: Log.w("MyApplication", "lastUserId is null, cannot update status")
             } ?: Log.w("MyApplication", "lastRoomId is null, cannot update status")
             isSessionClosed = true
