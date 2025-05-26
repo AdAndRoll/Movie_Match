@@ -41,7 +41,7 @@ android {
     dependencies {
 
 
-
+        implementation (libs.androidx.lifecycle.process)
         implementation (libs.postgrest.kt)
         implementation (libs.realtime.kt)
         implementation (libs.gotrue.kt)

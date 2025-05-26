@@ -1,5 +1,6 @@
 package com.example.try2
 
+import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.util.Log
@@ -397,10 +398,17 @@ class ChooseActivity : AppCompatActivity() {
                 })
         }
     }
-
+    override fun onBackPressed() {
+        super.onBackPressed()
+        val intent = Intent(this, MainActivity::class.java).apply {
+            putExtra("RESET_SESSION", true)
+        }
+        startActivity(intent)
+        finish()
+    }
     override fun onDestroy() {
         super.onDestroy()
-        UserSessionManager.updateOnlineStatus(this, roomId, userId, isOnline = false)
+
         coroutineScope.cancel()
         posterCache.clear() // Очищаем кэш Bitmap
         // Инвалидируем кэш Picasso для всех постеров

@@ -47,7 +47,7 @@ class MovieSearchActivity : AppCompatActivity() {
         countdownTextView = findViewById(R.id.countdownTextView)
         yearRangeText = findViewById(R.id.yearRangeText)
 
-        roomId = intent.getStringExtra("room_id") ?: run {
+        roomId = intent.getStringExtra("ROOM_ID") ?: run {
             Toast.makeText(this, "Room ID not provided", Toast.LENGTH_SHORT).show()
             finish()
             return
@@ -271,7 +271,14 @@ class MovieSearchActivity : AppCompatActivity() {
             finish()
         }
     }
-
+    override fun onBackPressed() {
+        super.onBackPressed()
+        val intent = Intent(this, MainActivity::class.java).apply {
+            putExtra("RESET_SESSION", true)
+        }
+        startActivity(intent)
+        finish()
+    }
     override fun onDestroy() {
         super.onDestroy()
         coroutineScope.cancel()

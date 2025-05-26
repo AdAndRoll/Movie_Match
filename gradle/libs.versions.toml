@@ -8,6 +8,7 @@ junitVersion = "1.1.5"
 espressoCore = "3.5.1"
 appcompat = "1.6.1"
 ktorClientOkhttp = "2.3.5"
+lifecycleProcess = "2.9.0"
 material = "1.12.0"
 activity = "1.8.0"
 constraintlayout = "2.1.4"
@@ -30,6 +31,7 @@ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = 
 
 
 
+androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycleProcess" }
 gotrue-kt = { module = "io.github.jan-tennert.supabase:gotrue-kt", version.ref = "postgrestKt" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
