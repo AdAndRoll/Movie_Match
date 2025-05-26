@@ -4,7 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:fitsSystemWindows="true">
+    android:fitsSystemWindows="true"
+    android:background="@drawable/background">
 
     <LinearLayout
         android:orientation="vertical"
@@ -21,7 +22,8 @@
         android:layout_marginTop="24dp"
         android:text="Код комнаты: ------"
         android:textSize="18sp"
-        android:textStyle="bold" />
+        android:textStyle="bold"
+        android:textColor="@color/white"/>
 
     <!-- RecyclerView с уменьшенным весом -->
     <androidx.recyclerview.widget.RecyclerView
@@ -29,7 +31,9 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="12dp"
-        android:layout_weight="0.7"/>
+        android:layout_weight="0.7"
+
+        />
 
     <!-- TextView для отсчета -->
     <TextView
@@ -39,9 +43,10 @@
         android:layout_gravity="center"
         android:layout_marginTop="16dp"
         android:text=""
-        android:textColor="@android:color/black"
+        android:textColor="@color/white"
         android:textSize="18sp"
-        android:visibility="gone" />
+        android:visibility="gone"
+        />
 
     <!-- Кнопка "Готов" -->
     <Button
@@ -49,7 +54,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="Готов" />
+        android:text="Готов"
+        android:background="@drawable/button_background"/>
 
     <!-- Кнопка "Выйти" с дополнительным отступом -->
     <Button
@@ -59,7 +65,8 @@
         android:layout_marginTop="8dp"
         android:layout_marginBottom="50dp"
         android:text="Выйти из комнаты"
-        android:textColor="@color/white" />
+        android:textColor="@color/black"
+        android:background="@drawable/button_background"/>
 
 </LinearLayout>
     </ScrollView>

@@ -8,6 +8,7 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.google.android.material.slider.RangeSlider
 import com.squareup.picasso.Picasso
 import io.github.jan.supabase.postgrest.from
@@ -108,6 +109,7 @@ class MovieSearchActivity : AppCompatActivity() {
         searchButton.isEnabled = false
         searchButton.text = "Ожидание..."
         isSearchSubmitted = true
+
         Log.d("MovieSearchActivity", "Search button disabled")
     }
 

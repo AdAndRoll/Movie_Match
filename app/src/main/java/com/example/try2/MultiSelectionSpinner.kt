@@ -1,10 +1,8 @@
 package com.example.try2
 
-import android.R
 import android.content.Context
 import android.util.AttributeSet
 import android.widget.ArrayAdapter
-import android.widget.Spinner
 import androidx.appcompat.app.AlertDialog
 
 class MultiSelectionSpinner @JvmOverloads constructor(
@@ -14,6 +12,11 @@ class MultiSelectionSpinner @JvmOverloads constructor(
     private var items: List<String> = emptyList()
     private var selectedItems: MutableList<String> = mutableListOf()
     private var listener: ((List<String>) -> Unit)? = null
+
+    init {
+        // Устанавливаем начальный текст
+        updateSpinnerText()
+    }
 
     fun setItems(items: List<String>) {
         this.items = items
@@ -59,11 +62,11 @@ class MultiSelectionSpinner @JvmOverloads constructor(
 
     private fun updateSpinnerText() {
         val displayText = if (selectedItems.isEmpty()) {
-            "Выберите жанры"
+            "Выберите жанры" // Начальное значение
         } else {
             selectedItems.joinToString(", ")
         }
-        val adapter = ArrayAdapter(context, R.layout.simple_spinner_item, listOf(displayText))
+        val adapter = ArrayAdapter(context, R.layout.spinner_item, listOf(displayText))
         this.adapter = adapter
     }
 }

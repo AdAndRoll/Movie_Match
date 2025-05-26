@@ -1,8 +1,23 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- Base application theme -->
     <style name="Base.Theme.Try2" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <!-- Прозрачный статус-бар -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowTranslucentStatus">true</item>
+        <!-- Стиль кнопок -->
+        <item name="materialButtonStyle">@style/Widget.App.Button</item>
+        <item name="colorPrimary">@color/white</item>
+        <item name="colorOnPrimary">@color/black</item>
+    </style>
+
+    <!-- Кастомный стиль кнопок -->
+    <style name="Widget.App.Button" parent="Widget.Material3.Button">
+        <item name="android:background">@drawable/button_background</item>
+        <item name="android:textColor">@color/button_text_color</item> <!-- Используем селектор для цвета текста -->
+        <item name="android:textSize">16sp</item>
+        <item name="android:elevation">4dp</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="android:textStyle">bold</item> <!-- Сохраняем жирный стиль текста -->
     </style>
 
     <style name="Theme.Try2" parent="Base.Theme.Try2" />

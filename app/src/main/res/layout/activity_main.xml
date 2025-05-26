@@ -6,52 +6,84 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@drawable/background"
     tools:context=".MainActivity">
 
+    <!-- Заголовок -->
+
+    <!-- Кнопка создания комнаты -->
     <TextView
         android:id="@+id/StartText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:shadowColor="@color/black"
+        android:shadowDx="2"
+        android:shadowDy="2"
+        android:shadowRadius="3"
         android:text="@string/StartText"
-        android:textSize="34sp"
+        android:textColor="@color/white"
+        android:textSize="@dimen/text_size_title"
         android:textStyle="bold"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
+        app:layout_constraintHorizontal_bias="0.581"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.245" />
+        app:layout_constraintVertical_bias="0.312" />
 
     <Button
         android:id="@+id/CreateRoomButton"
-        android:layout_width="205dp"
-        android:layout_height="60dp"
-        android:layout_marginTop="112dp"
-        android:text="@string/TextCreateRoomButton"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/StartText" />
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/margin_extra_large"
+    android:layout_marginStart="@dimen/margin_small"
+    android:layout_marginEnd="@dimen/margin_small"
+    android:text="@string/TextCreateRoomButton"
+    android:background="@drawable/button_background"
+    android:textColor="@color/black"
+    android:textSize="@dimen/button_text_size"
+    android:elevation="4dp"
+    app:layout_constraintTop_toBottomOf="@id/StartText"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintWidth_percent="@dimen/button_width_percent"
+    app:layout_constraintVertical_chainStyle="packed" />
 
+    <!-- Кнопка присоединения -->
     <Button
         android:id="@+id/JoinButton"
-        android:layout_width="205dp"
-        android:layout_height="60dp"
-        android:layout_marginTop="32dp"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/margin_medium"
+        android:layout_marginStart="@dimen/margin_small"
+        android:layout_marginEnd="@dimen/margin_small"
         android:text="@string/TextJoinButton"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:background="@drawable/button_background"
+        android:textColor="@color/black"
+        android:textSize="@dimen/button_text_size"
+        android:elevation="4dp"
+        app:layout_constraintTop_toBottomOf="@id/CreateRoomButton"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/CreateRoomButton" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintWidth_percent="@dimen/button_width_percent" />
 
+    <!-- Кнопка переподключения -->
     <Button
         android:id="@+id/reconnectButton"
-        android:layout_width="205dp"
-        android:layout_height="60dp"
-        android:layout_marginTop="32dp"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/margin_medium"
+        android:layout_marginStart="@dimen/margin_small"
+        android:layout_marginEnd="@dimen/margin_small"
         android:text="Переподключиться к: ..."
         android:visibility="gone"
-        android:textColor="@color/white"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:background="@drawable/button_background"
+        android:textColor="@color/black"
+        android:textSize="@dimen/button_text_size"
+        android:elevation="4dp"
+        app:layout_constraintTop_toBottomOf="@id/JoinButton"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/JoinButton" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintWidth_percent="@dimen/button_width_percent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

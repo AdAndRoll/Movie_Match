@@ -1,10 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="@drawable/background">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+
+        android:textSize="16sp"
+        android:textColor="@color/white"
+        android:layout_marginBottom="8dp" />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+
+        android:textSize="16sp"
+        android:textColor="@color/white"
+        android:layout_marginBottom="8dp" />
+    <!-- Заголовок для ползунка -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Выберите диапазон годов:"
+        android:textSize="16sp"
+        android:textColor="@color/white"
+        android:layout_marginBottom="8dp" />
 
     <!-- Ползунок для выбора диапазона годов -->
     <com.google.android.material.slider.RangeSlider
@@ -24,14 +49,19 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text="Выбранные года: 1990 - 2024"
-        android:textSize="16sp" />
+        android:textSize="16sp"
+        android:textColor="@color/white" />
+
+
 
     <!-- Кастомный спиннер для множественного выбора жанров -->
     <com.example.try2.MultiSelectionSpinner
         android:id="@+id/genreSpinner"
         android:layout_width="match_parent"
         android:layout_height="50dp"
-        android:layout_marginTop="16dp" />
+        android:layout_marginTop="8dp"
+        android:background="@drawable/spinner_background"
+    android:padding="8dp" />
 
     <!-- Кнопка для выполнения запроса -->
     <Button
@@ -41,9 +71,6 @@
         android:layout_marginTop="16dp"
         android:text="Искать фильмы"
         android:enabled="true"
-        android:backgroundTint="@android:color/holo_blue_light"
-        android:backgroundTintMode="src_over"
-        android:textColor="@android:color/white"
         android:textStyle="bold" />
 
     <!-- Текстовое поле для отсчёта -->
@@ -54,5 +81,7 @@
         android:visibility="gone"
         android:text="Переход через: 5"
         android:textSize="16sp"
-        android:layout_marginTop="8dp" />
+        android:layout_marginTop="8dp"
+        android:textColor="@color/white" />
+
 </LinearLayout>
