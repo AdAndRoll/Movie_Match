@@ -363,15 +363,24 @@ class ChooseActivity : AppCompatActivity() {
         yesButton.isEnabled = false
         noButton.isEnabled = false
         messageTextView.text = "Фильм выбран всеми: ${movie.name}!"
+
+        // Обновляем текстовые поля, дублируя логику из displayMovie
+        movieNameTextView.text = movie.name
+        movieDescriptionTextView.text = movie.description
+        movieGenreTextView.text = movie.genres.joinToString(", ") { it.name }
+        movieYearTextView.text = "Year: ${movie.year}"
+        movieLengthTextView.text = "Length: ${movie.movieLength} min"
+        movieRatingTextView.text = "Rating: ${movie.rating.kp}"
+
         val startTime = System.currentTimeMillis()
         val bitmap = posterCache[movie.id]
         if (bitmap != null) {
             moviePosterImageView.setImageBitmap(bitmap)
             moviePosterImageView.alpha = 1f
             val elapsed = System.currentTimeMillis() - startTime
-            Log.d("ChooseActivity", "Loaded final poster for ${movie.name} (id: ${movie.id}']=='')}>x${bitmap.height}")
-            } else {
-                    Log.w("ChooseActivity", "Final poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}) not in cache, loading asynchronously")
+            Log.d("ChooseActivity", "Loaded final poster for ${movie.name} (id: ${movie.id}) from cache in $elapsed ms, size: ${bitmap.width}x${bitmap.height}")
+        } else {
+            Log.w("ChooseActivity", "Final poster for ${movie.name} (id: ${movie.id}, url: ${movie.poster.url}) not in cache, loading asynchronously")
             Picasso.get()
                 .load(movie.poster.url)
                 .into(moviePosterImageView, object : com.squareup.picasso.Callback {
